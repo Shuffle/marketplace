@@ -1,0 +1,202 @@
+version: '3.8'
+
+services:
+  frontend:
+    image: ghcr.io/shuffle/shuffle-frontend:nightly
+    hostname: shuffle-frontend
+    ports:
+      - "${FRONTEND_PORT}:80"
+      - "${FRONTEND_PORT_HTTPS}:443"
+    networks:
+      - shuffle
+    environment:
+      - BACKEND_HOSTNAME=${BACKEND_HOSTNAME}
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: any
+        delay: 10s
+        max_attempts: 3
+        window: 60s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  backend:
+    image: ghcr.io/shuffle/shuffle-backend:nightly
+    hostname: shuffle-backend
+    networks:
+      - shuffle
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - shuffle-apps:/shuffle-apps:z
+      - shuffle-files:/shuffle-files:z
+    env_file: .env
+    environment:
+      - SHUFFLE_APP_HOTLOAD_FOLDER=/shuffle-apps
+      - SHUFFLE_FILE_LOCATION=/shuffle-files
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: any
+        delay: 10s
+        max_attempts: 3
+        window: 60s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  orborus:
+    image: ghcr.io/shuffle/shuffle-orborus:nightly
+    hostname: shuffle-orborus
+    networks:
+      - shuffle
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - SHUFFLE_APP_SDK_TIMEOUT=300
+      - SHUFFLE_ORBORUS_EXECUTION_CONCURRENCY=${SHUFFLE_ORBORUS_EXECUTION_CONCURRENCY}
+      - ENVIRONMENT_NAME=${ENVIRONMENT_NAME}
+      - ORG_ID=${ENVIRONMENT_NAME}
+      - BASE_URL=http://shuffle-backend:5001
+      - DOCKER_API_VERSION=${DOCKER_API_VERSION}
+      - HTTP_PROXY=${HTTP_PROXY}
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - SHUFFLE_PASS_WORKER_PROXY=${SHUFFLE_PASS_WORKER_PROXY}
+      - SHUFFLE_PASS_APP_PROXY=${SHUFFLE_PASS_APP_PROXY}
+      - SHUFFLE_STATS_DISABLED=true
+      - SHUFFLE_LOGS_DISABLED=${SHUFFLE_LOGS_DISABLED}
+      - SHUFFLE_SWARM_CONFIG=swarm
+      - SHUFFLE_WORKER_IMAGE=ghcr.io/shuffle/shuffle-worker:nightly
+      - TZ=${TZ}
+    env_file: .env
+    deploy:
+      replicas: 3
+      restart_policy:
+        condition: any
+        delay: 10s
+        max_attempts: 3
+        window: 60s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+      placement:
+        preferences:
+          - spread: node.id
+    security_opt:
+      - seccomp:unconfined
+
+  opensearch:
+    image: opensearchproject/opensearch:3.0.0
+    hostname: shuffle-opensearch
+    environment:
+      - "OPENSEARCH_JAVA_OPTS=-Xms2048m -Xmx2048m"
+      - bootstrap.memory_lock=true
+      - DISABLE_PERFORMANCE_ANALYZER_AGENT_CLI=true
+      - cluster.initial_master_nodes=shuffle-opensearch
+      - cluster.routing.allocation.disk.threshold_enabled=false
+      - cluster.name=shuffle-cluster
+      - node.name=shuffle-opensearch
+      - node.store.allow_mmap=false
+      - discovery.seed_hosts=shuffle-opensearch
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=${SHUFFLE_OPENSEARCH_PASSWORD}
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - shuffle-database:/usr/share/opensearch/data:z
+    ports:
+      - 9200:9200
+    networks:
+      - shuffle
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 15s
+        max_attempts: 3
+        window: 60s
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 2G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "-k", "-u", "admin:${SHUFFLE_OPENSEARCH_PASSWORD}", "${SHUFFLE_OPENSEARCH_URL}/_cluster/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+  # Load balancer for backend services
+  backend-lb:
+    image: nginx:alpine
+    ports:
+      - "5001:80"
+    networks:
+      - shuffle
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 10s
+        max_attempts: 3
+        window: 60s
+      placement:
+        constraints:
+          - node.role == manager
+
+volumes:
+  shuffle-database:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${DB_LOCATION}
+      o: bind
+
+  shuffle-apps:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${SHUFFLE_APP_HOTLOAD_LOCATION}
+      o: bind
+
+  shuffle-files:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${SHUFFLE_FILE_LOCATION}
+      o: bind
+
+networks:
+  shuffle:
+    driver: overlay
+    attachable: true
+    driver_opts:
+      com.docker.network.driver.mtu: ${SHUFFLE_SWARM_BRIDGE_DEFAULT_MTU}
