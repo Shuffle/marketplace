@@ -20,6 +20,7 @@ services:
     hostname: shuffle-backend
     networks:
       - shuffle
+      - shuffle_swarm_executions
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - shuffle-apps:/shuffle-apps
@@ -46,8 +47,9 @@ services:
       - SHUFFLE_APP_SDK_TIMEOUT=300
       - BASE_URL=http://shuffle-backend:5001
       - SHUFFLE_STATS_DISABLED=true
-      - SHUFFLE_SWARM_CONFIG=swarm
-      - SHUFFLE_WORKER_IMAGE=ghcr.io/shuffle/shuffle-worker:nightly
+      - SHUFFLE_SWARM_CONFIG=run
+      - SHUFFLE_WORKER_IMAGE=ghcr.io/shuffle/shuffle-worker:latest
+      - SHUFFLE_WORKER_SERVER_URL=http://shuffle-workers:33333
     deploy:
       replicas: 3
       restart_policy:
@@ -116,6 +118,25 @@ services:
         delay: 10s
         max_attempts: 3
         window: 60s
+
+  memcached:
+    image: memcached:latest
+    hostname: shuffle-cache
+    networks:
+      - shuffle
+    command: memcached -m 1024 -c 2500
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 10s
+        max_attempts: 3
+        window: 60s
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
 
 
 volumes:
