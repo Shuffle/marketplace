@@ -67,7 +67,7 @@ services:
     hostname: shuffle-opensearch
     env_file: .env
     environment:
-      - "OPENSEARCH_JAVA_OPTS=-Xms2048m -Xmx2048m"
+      - OPENSEARCH_JAVA_OPTS=-Xms2048m -Xmx2048m
       - bootstrap.memory_lock=false
       - DISABLE_PERFORMANCE_ANALYZER_AGENT_CLI=true
       - cluster.initial_master_nodes=shuffle-opensearch
@@ -139,38 +139,35 @@ services:
         reservations:
           memory: 512M
 
-
 volumes:
   # NFS-backed volumes that are shared across all swarm nodes
-  # These volumes use the NFS server on the master node
   shuffle-apps:
     driver: local
     driver_opts:
       type: nfs
-      o: addr=10.152.0.4,rw,nfsvers=3
-      device: "10.152.0.4:/srv/nfs/shuffle-apps"
-  
+      o: addr=${NFS_MASTER_IP},rw,nfsvers=4
+      device: "${NFS_MASTER_IP}:/srv/nfs/shuffle-apps"
+
   shuffle-files:
     driver: local
     driver_opts:
       type: nfs
-      o: addr=10.152.0.4,rw,nfsvers=3
-      device: "10.152.0.4:/srv/nfs/shuffle-files"
-  
+      o: addr=${NFS_MASTER_IP},rw,nfsvers=4
+      device: "${NFS_MASTER_IP}:/srv/nfs/shuffle-files"
+
   shuffle-database:
     driver: local
     driver_opts:
       type: nfs
-      o: addr=10.152.0.4,rw,nfsvers=3
-      device: "10.152.0.4:/srv/nfs/shuffle-database"
-
+      o: addr=${NFS_MASTER_IP},rw,nfsvers=4
+      device: "${NFS_MASTER_IP}:/srv/nfs/shuffle-database"
 
 networks:
   shuffle:
     driver: overlay
     attachable: true
     driver_opts:
-      com.docker.network.driver.mtu: 1500
+      com.docker.network.driver.mtu: "1500"
   swarm_executions:
     driver: overlay
     attachable: true
