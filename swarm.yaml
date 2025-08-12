@@ -38,6 +38,7 @@ services:
     hostname: shuffle-orborus
     networks:
       - shuffle
+      - shuffle_swarm_executions
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     env_file: .env
@@ -116,6 +117,7 @@ services:
         max_attempts: 3
         window: 60s
 
+
 volumes:
   # NFS-backed volumes that are shared across all swarm nodes
   # These volumes use the NFS server on the master node
@@ -147,3 +149,5 @@ networks:
     attachable: true
     driver_opts:
       com.docker.network.driver.mtu: 1500
+  shuffle_swarm_executions:
+    external: true
