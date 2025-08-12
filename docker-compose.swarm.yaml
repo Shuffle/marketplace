@@ -133,4 +133,4 @@ networks:
     driver: overlay
     attachable: true
     driver_opts:
-      com.docker.network.driver.mtu: ${SHUFFLE_SWARM_BRIDGE_DEFAULT_MTU}
+      com.docker.network.driver.mtu: 1500
