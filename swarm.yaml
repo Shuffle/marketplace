@@ -20,7 +20,7 @@ services:
     hostname: shuffle-backend
     networks:
       - shuffle
-      - shuffle_swarm_executions
+      - swarm_executions
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - shuffle-apps:/shuffle-apps
@@ -39,7 +39,7 @@ services:
     hostname: shuffle-orborus
     networks:
       - shuffle
-      - shuffle_swarm_executions
+      - swarm_executions
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     env_file: .env
@@ -50,6 +50,7 @@ services:
       - SHUFFLE_SWARM_CONFIG=run
       - SHUFFLE_WORKER_IMAGE=ghcr.io/shuffle/shuffle-worker:latest
       - SHUFFLE_WORKER_SERVER_URL=http://shuffle-workers:33333
+      - SHUFFLE_SWARM_NETWORK_NAME=shuffle_swarm_executions
     deploy:
       replicas: 3
       restart_policy:
@@ -170,5 +171,6 @@ networks:
     attachable: true
     driver_opts:
       com.docker.network.driver.mtu: 1500
-  shuffle_swarm_executions:
-    external: true
+  swarm_executions:
+    driver: overlay
+    attachable: true
