@@ -117,16 +117,29 @@ services:
         window: 60s
 
 volumes:
-  # Single-node: uses local storage
-  # Multi-node: automatically replicates to all nodes as needed
+  # NFS-backed volumes that are shared across all swarm nodes
+  # These volumes use the NFS server on the master node
   shuffle-apps:
     driver: local
+    driver_opts:
+      type: nfs
+      o: addr=10.152.0.4,rw,nfsvers=3
+      device: "10.152.0.4:/srv/nfs/shuffle-apps"
   
   shuffle-files:
     driver: local
+    driver_opts:
+      type: nfs
+      o: addr=10.152.0.4,rw,nfsvers=3
+      device: "10.152.0.4:/srv/nfs/shuffle-files"
   
   shuffle-database:
     driver: local
+    driver_opts:
+      type: nfs
+      o: addr=10.152.0.4,rw,nfsvers=3
+      device: "10.152.0.4:/srv/nfs/shuffle-database"
+
 
 networks:
   shuffle:
