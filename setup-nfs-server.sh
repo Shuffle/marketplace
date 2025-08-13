@@ -1,103 +1,126 @@
 #!/bin/bash
+# Shuffle NFS Server Setup Script for Docker Swarm (NFSv3, pinned ports)
 
-# Shuffle NFS Server Setup Script for Docker Swarm Master Node
-# This script sets up an NFS server to share Docker volumes across swarm nodes
+set -euo pipefail
 
-set -e
+echo "🔧 Setting up NFS server for Shuffle Docker Swarm (NFSv3, pinned ports)..."
 
-echo "Setting up NFS server for Shuffle Docker Swarm..."
+export DEBIAN_FRONTEND=noninteractive
 
-# Install NFS server
-echo "Installing NFS server packages..."
-apt-get update
-apt-get install -y nfs-kernel-server nfs-common
+echo "📦 Installing NFS server packages..."
+apt-get update -y
+apt-get install -y nfs-kernel-server nfs-common rpcbind
 
-# Create directories for NFS shares that users can write to
-echo "Creating NFS share directories..."
-mkdir -p /srv/nfs/shuffle-apps
-mkdir -p /srv/nfs/shuffle-files
-mkdir -p /srv/nfs/shuffle-database
-mkdir -p /srv/nfs/nginx-config
+echo "📁 Creating NFS share directories..."
+install -d -m 0775 /srv/nfs/shuffle-apps
+install -d -m 0775 /srv/nfs/shuffle-files
+install -d -m 0775 /srv/nfs/shuffle-database
+install -d -m 0755 /srv/nfs/nginx-config
 
-# Set proper ownership and permissions for user access
-echo "Setting permissions for user access..."
-chown -R $SUDO_USER:$SUDO_USER /srv/nfs/
-chmod -R 755 /srv/nfs/
+# Choose a shared runtime UID:GID for write access (containers should run as this user)
+APP_UID=${APP_UID:-1000}
+APP_GID=${APP_GID:-1000}
 
-# Copy nginx config if it exists
+echo "🔐 Setting ownership (UID:GID ${APP_UID}:${APP_GID}) and permissions..."
+chown -R "${APP_UID}:${APP_GID}" /srv/nfs/shuffle-apps /srv/nfs/shuffle-files /srv/nfs/shuffle-database
+chown -R "${APP_UID}:${APP_GID}" /srv/nfs/nginx-config || true
+chmod -R u+rwX,g+rwX,o+rX /srv/nfs
+
+# Optional: copy nginx config if present
 if [ -f "./nginx-main.conf" ]; then
-    echo "📋 Copying nginx configuration..."
-    cp ./nginx-main.conf /srv/nfs/nginx-config/nginx.conf
-    chown $SUDO_USER:$SUDO_USER /srv/nfs/nginx-config/nginx.conf
+  echo "📋 Copying nginx configuration..."
+  cp ./nginx-main.conf /srv/nfs/nginx-config/nginx.conf
+  chown "${APP_UID}:${APP_GID}" /srv/nfs/nginx-config/nginx.conf
 fi
 
-# Get the current network interface and IP
-INTERFACE=$(ip route | grep default | awk '{print $5}' | head -n1)
-SERVER_IP=$(ip addr show $INTERFACE | grep "inet " | awk '{print $2}' | cut -d/ -f1 | head -n1)
-NETWORK=$(ip route | grep $INTERFACE | grep "/" | grep -v default | awk '{print $1}' | head -n1)
+# Detect primary IPv4 interface, IP and subnet
+INTERFACE=$(ip route | awk '/default/ {print $5; exit}')
+SERVER_IP=$(ip -4 addr show "$INTERFACE" | awk '/inet /{print $2}' | cut -d/ -f1 | head -n1)
+NETWORK=$(ip -4 route | awk -v IF="$INTERFACE" '$3==IF && $1 ~ /\// && $1!="default" {print $1; exit}')
 
-echo "Detected network: $NETWORK on interface $INTERFACE"
-echo "Server IP: $SERVER_IP"
+echo "🌐 Detected network: $NETWORK on interface $INTERFACE"
+echo "🖥️  Server IP: $SERVER_IP"
 
-# Configure NFS exports
-echo "Configuring NFS exports..."
-cat > /etc/exports << EOF
-# Shuffle NFS exports for Docker Swarm
-# Allow access from the local network with read-write permissions
-/srv/nfs/shuffle-apps    $NETWORK(rw,sync,no_subtree_check,no_root_squash,insecure)
-/srv/nfs/shuffle-files   $NETWORK(rw,sync,no_subtree_check,no_root_squash,insecure)  
-/srv/nfs/shuffle-database $NETWORK(rw,sync,no_subtree_check,no_root_squash,insecure)
-/srv/nfs/nginx-config    $NETWORK(ro,sync,no_subtree_check,no_root_squash,insecure)
+echo "🛠️  Pinning NFSv3 helper ports..."
+# nfsd: 2049, mountd: 51771, statd: 48095/48096, lockd: 32769
+cat >/etc/nfs.conf <<'EOF'
+[nfsd]
+vers3=y
+vers4=n
+port=2049
+
+[mountd]
+port=51771
+
+[statd]
+port=48095
+outgoing-port=48096
+
+[lockd]
+port=32769
 EOF
 
-# Start and enable NFS services
-echo "Starting NFS services..."
-systemctl enable nfs-kernel-server
-systemctl restart nfs-kernel-server
-systemctl enable rpcbind
-systemctl restart rpcbind
+# For some kernels, lockd also reads modprobe opts (harmless if duplicate)
+cat >/etc/modprobe.d/lockd.conf <<'EOF'
+options lockd nlm_tcpport=32769 nlm_udpport=32769
+EOF
 
-# Export the filesystems
-echo "Exporting NFS shares..."
+echo "📝 Configuring NFS exports (root_squash, insecure for high client ports)..."
+cat > /etc/exports <<EOF
+# Shuffle NFS exports for Docker Swarm (NFSv3)
+# Keep root_squash (safer). Ensure dirs are owned by APP_UID:APP_GID.
+# 'insecure' allows high (non-privileged) client ports used by Docker.
+/srv/nfs/shuffle-apps      ${NETWORK}(rw,sync,root_squash,no_subtree_check,insecure)
+/srv/nfs/shuffle-files     ${NETWORK}(rw,sync,root_squash,no_subtree_check,insecure)
+/srv/nfs/shuffle-database  ${NETWORK}(rw,sync,root_squash,no_subtree_check,insecure)
+/srv/nfs/nginx-config      ${NETWORK}(ro,sync,root_squash,no_subtree_check,insecure)
+EOF
+
+echo "🚀 Enabling and restarting NFS services..."
+systemctl enable rpcbind nfs-kernel-server
+systemctl restart rpcbind
+systemctl restart nfs-kernel-server
+
+echo "📤 Exporting NFS shares..."
 exportfs -ra
 
-# Show the exports
-echo "NFS server setup complete! Current exports:"
+echo "✅ NFS server setup complete! Current exports:"
 exportfs -v
 
-echo ""
-echo " NFS Share Information:"
-echo "   shuffle-apps:     nfs://$SERVER_IP/srv/nfs/shuffle-apps"
-echo "   shuffle-files:    nfs://$SERVER_IP/srv/nfs/shuffle-files"  
-echo "   shuffle-database: nfs://$SERVER_IP/srv/nfs/shuffle-database"
-echo "   nginx-config:     nfs://$SERVER_IP/srv/nfs/nginx-config"
-echo ""
-echo " To mount on worker nodes, run:"
-echo "   sudo mount -t nfs $SERVER_IP:/srv/nfs/shuffle-apps /mnt/shuffle-apps"
-echo ""
-echo " User-writable directories created at:"
-echo "   /srv/nfs/shuffle-apps"
-echo "   /srv/nfs/shuffle-files"
-echo "   /srv/nfs/shuffle-database"
-echo "   /srv/nfs/nginx-config"
+echo "🔎 RPC services (verify pinned ports):"
+rpcinfo -p | egrep 'tcp.*(nfs|mountd|status|nlockmgr|portmapper)' || true
 
-# Apply OpenSearch optimizations
-echo ""
-echo "Applying OpenSearch optimizations..."
+echo
+echo "📋 NFS Share Information:"
+echo "   shuffle-apps:      nfs://${SERVER_IP}/srv/nfs/shuffle-apps"
+echo "   shuffle-files:     nfs://${SERVER_IP}/srv/nfs/shuffle-files"
+echo "   shuffle-database:  nfs://${SERVER_IP}/srv/nfs/shuffle-database"
+echo "   nginx-config:      nfs://${SERVER_IP}/srv/nfs/nginx-config"
+echo
+echo "🧪 Test from a worker node (manual):"
+echo "  sudo mkdir -p /mnt/shuffle-apps"
+echo "  sudo mount -o vers=3,proto=tcp,port=2049,mountport=51771,nolock ${SERVER_IP}:/srv/nfs/shuffle-apps /mnt/shuffle-apps"
+echo "  # If you require POSIX locks, drop 'nolock' and open tcp/32769."
+echo
 
-# Set ownership for database directory
-chown -R 1000:1000 /srv/nfs/shuffle-database
+echo "🧱 Firewall: allow TCP 2049, 111, 51771, 48095, 48096, 32769 from your Swarm nodes to ${SERVER_IP}"
+echo "   (cloud + host firewall, if applicable)"
 
-# Disable swap
+echo
+echo "🔧 Applying OpenSearch optimizations..."
+# Set ownership for database directory for Opensearch (UID 1000 typical)
+chown -R 1000:1000 /srv/nfs/shuffle-database || true
+
+# Disable swap (best-effort)
 swapoff -a 2>/dev/null || echo "Swap already disabled"
 
 # Set vm.max_map_count for OpenSearch
 if [ "$(cat /proc/sys/vm/max_map_count)" -lt 262144 ]; then
-    sysctl -w vm.max_map_count=262144
-    if ! grep -q "vm.max_map_count" /etc/sysctl.conf; then
-        echo "vm.max_map_count=262144" >> /etc/sysctl.conf
-    fi
-    echo "vm.max_map_count set to 262144"
+  sysctl -w vm.max_map_count=262144
+  if ! grep -q "^vm.max_map_count=" /etc/sysctl.conf; then
+    echo "vm.max_map_count=262144" >> /etc/sysctl.conf
+  fi
+  echo "✅ vm.max_map_count set to 262144"
 fi
 
 echo "✅ OpenSearch optimizations applied"
