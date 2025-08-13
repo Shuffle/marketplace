@@ -78,11 +78,26 @@ if [[ ! -f "${COMPOSE_FILE}" ]]; then
   exit 1
 fi
 
-# Export env var for compose substitution
-export NFS_MASTER_IP="${MASTER_IP}"
+# Count swarm nodes for replica scaling
+SWARM_NODE_COUNT=$(docker node ls --format "{{.ID}}" | wc -l)
+echo "🔢 Detected ${SWARM_NODE_COUNT} nodes in the swarm"
 
-# (Optional) write to a compose env file for transparency
-echo "NFS_MASTER_IP=${NFS_MASTER_IP}" > .compose.env
+# Export env vars for compose substitution
+export NFS_MASTER_IP="${MASTER_IP}"
+export SWARM_NODE_COUNT="${SWARM_NODE_COUNT}"
+
+# Update existing .env file with deployment vars
+if ! grep -q "^NFS_MASTER_IP=" .env 2>/dev/null; then
+  echo "NFS_MASTER_IP=${NFS_MASTER_IP}" >> .env
+else
+  sed -i "s/^NFS_MASTER_IP=.*/NFS_MASTER_IP=${NFS_MASTER_IP}/" .env
+fi
+
+if ! grep -q "^SWARM_NODE_COUNT=" .env 2>/dev/null; then
+  echo "SWARM_NODE_COUNT=${SWARM_NODE_COUNT}" >> .env
+else
+  sed -i "s/^SWARM_NODE_COUNT=.*/SWARM_NODE_COUNT=${SWARM_NODE_COUNT}/" .env
+fi
 
 # Deploy
 echo "🚢 Deploying Shuffle stack..."
