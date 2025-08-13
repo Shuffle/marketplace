@@ -8,7 +8,7 @@ services:
       - shuffle
     env_file: .env
     deploy:
-      replicas: 2
+      replicas: ${SWARM_NODE_COUNT}
       restart_policy:
         condition: any
         delay: 10s
@@ -27,7 +27,7 @@ services:
       - shuffle-files:/shuffle-files
     env_file: .env
     deploy:
-      replicas: 2
+      replicas: ${SWARM_NODE_COUNT}
       restart_policy:
         condition: any
         delay: 10s
@@ -52,7 +52,7 @@ services:
       - SHUFFLE_WORKER_SERVER_URL=http://shuffle-workers:33333
       - SHUFFLE_SWARM_NETWORK_NAME=shuffle_swarm_executions
     deploy:
-      replicas: 3
+      replicas: ${SWARM_NODE_COUNT}
       restart_policy:
         condition: any
         delay: 10s
@@ -91,12 +91,15 @@ services:
     networks:
       - shuffle
     deploy:
-      replicas: 1
+      replicas: ${SWARM_NODE_COUNT}
       restart_policy:
         condition: any
         delay: 15s
         max_attempts: 3
         window: 60s
+      placement:
+        preferences:
+          - spread: node.id
       resources:
         limits:
           memory: 4G
@@ -113,31 +116,13 @@ services:
     volumes:
       - ./nginx-main.conf:/etc/nginx/nginx.conf:ro
     deploy:
-      replicas: 1
+      replicas: ${SWARM_NODE_COUNT}
       restart_policy:
         condition: any
         delay: 10s
         max_attempts: 3
         window: 60s
 
-  memcached:
-    image: memcached:latest
-    hostname: shuffle-cache
-    networks:
-      - shuffle
-    command: memcached -m 1024 -c 2500
-    deploy:
-      replicas: 1
-      restart_policy:
-        condition: any
-        delay: 10s
-        max_attempts: 3
-        window: 60s
-      resources:
-        limits:
-          memory: 1G
-        reservations:
-          memory: 512M
 
 volumes:
   # NFS-backed volumes that are shared across all swarm nodes
