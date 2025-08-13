@@ -132,4 +132,4 @@ MANAGER_TOKEN=$(docker swarm join-token manager -q)
 echo "   On another machine: docker swarm join --token ${MANAGER_TOKEN} ${MASTER_IP}:2377"
 echo "   Get current token: docker swarm join-token manager"
 echo ""
-echo "💡 Tip: IP
+echo "💡 Tip: IPs change? Just rerun this script — it will redeploy with the new NFS_MASTER_IP."
