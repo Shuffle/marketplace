@@ -25,12 +25,12 @@ if ! docker node ls >/dev/null 2>&1; then
   exit 1
 fi
 
-# Manager/Leader check
-if ! docker node ls --filter "role=manager" | grep -q "Leader"; then
-  echo "❌ This script must be run on a Docker Swarm manager node (Leader)"
+# Manager check
+if ! docker node ls --filter "role=manager" | grep -q "$(hostname)"; then
+  echo "❌ This script must be run on a Docker Swarm manager node"
   exit 1
 fi
-echo "✅ Docker Swarm manager (Leader) detected"
+echo "✅ Docker Swarm manager detected"
 
 # Detect primary interface and IP
 echo "🔍 Auto-detecting master node IP..."
@@ -127,4 +127,9 @@ echo "   View services: docker stack services ${STACK_NAME}"
 echo "   View logs:     docker service logs ${STACK_NAME}_<service-name>"
 echo "   Remove stack:  docker stack rm ${STACK_NAME}"
 echo ""
-echo "💡 Tip: IPs change? Just rerun this script — it will redeploy with the new NFS_MASTER_IP."
+echo "🏗️  Add Manager Node:"
+MANAGER_TOKEN=$(docker swarm join-token manager -q)
+echo "   On another machine: docker swarm join --token ${MANAGER_TOKEN} ${MASTER_IP}:2377"
+echo "   Get current token: docker swarm join-token manager"
+echo ""
+echo "💡 Tip: IP
