@@ -69,7 +69,7 @@ if [[ "${NFS_RUNNING}" == "false" ]]; then
     exit 1
   fi
 else
-  echo "⏭️  Skipping NFS setup (already configured)"
+  echo "✅ NFS server already running"
 fi
 
 # Ensure compose file exists
@@ -82,9 +82,26 @@ fi
 SWARM_NODE_COUNT=$(docker node ls --format "{{.ID}}" | wc -l)
 echo "🔢 Detected ${SWARM_NODE_COUNT} nodes in the swarm"
 
+# Generate OpenSearch initial master nodes list based on actual replicas
+OPENSEARCH_REPLICAS=$(( SWARM_NODE_COUNT > 3 ? 3 : SWARM_NODE_COUNT ))
+OPENSEARCH_INDEX_REPLICAS=$(( OPENSEARCH_REPLICAS - 1 ))
+OPENSEARCH_INITIAL_MASTERS=""
+for i in $(seq 1 $OPENSEARCH_REPLICAS); do
+  if [[ -z "${OPENSEARCH_INITIAL_MASTERS}" ]]; then
+    OPENSEARCH_INITIAL_MASTERS="shuffle-opensearch-${i}"
+  else
+    OPENSEARCH_INITIAL_MASTERS="${OPENSEARCH_INITIAL_MASTERS},shuffle-opensearch-${i}"
+  fi
+done
+echo "🔧 OpenSearch replicas: ${OPENSEARCH_REPLICAS}, index replicas: ${OPENSEARCH_INDEX_REPLICAS}, initial masters: ${OPENSEARCH_INITIAL_MASTERS}"
+
+
 # Export env vars for compose substitution
 export NFS_MASTER_IP="${MASTER_IP}"
 export SWARM_NODE_COUNT="${SWARM_NODE_COUNT}"
+export OPENSEARCH_REPLICAS="${OPENSEARCH_REPLICAS}"
+export OPENSEARCH_INDEX_REPLICAS="${OPENSEARCH_INDEX_REPLICAS}"
+export OPENSEARCH_INITIAL_MASTERS="${OPENSEARCH_INITIAL_MASTERS}"
 
 # Update existing .env file with deployment vars
 if ! grep -q "^NFS_MASTER_IP=" .env 2>/dev/null; then
@@ -97,6 +114,44 @@ if ! grep -q "^SWARM_NODE_COUNT=" .env 2>/dev/null; then
   echo "SWARM_NODE_COUNT=${SWARM_NODE_COUNT}" >> .env
 else
   sed -i "s/^SWARM_NODE_COUNT=.*/SWARM_NODE_COUNT=${SWARM_NODE_COUNT}/" .env
+fi
+
+if ! grep -q "^OPENSEARCH_REPLICAS=" .env 2>/dev/null; then
+  echo "OPENSEARCH_REPLICAS=${OPENSEARCH_REPLICAS}" >> .env
+else
+  sed -i "s/^OPENSEARCH_REPLICAS=.*/OPENSEARCH_REPLICAS=${OPENSEARCH_REPLICAS}/" .env
+fi
+
+if ! grep -q "^OPENSEARCH_INDEX_REPLICAS=" .env 2>/dev/null; then
+  echo "OPENSEARCH_INDEX_REPLICAS=${OPENSEARCH_INDEX_REPLICAS}" >> .env
+else
+  sed -i "s/^OPENSEARCH_INDEX_REPLICAS=.*/OPENSEARCH_INDEX_REPLICAS=${OPENSEARCH_INDEX_REPLICAS}/" .env
+fi
+
+if ! grep -q "^OPENSEARCH_INITIAL_MASTERS=" .env 2>/dev/null; then
+  echo "OPENSEARCH_INITIAL_MASTERS=${OPENSEARCH_INITIAL_MASTERS}" >> .env
+else
+  sed -i "s/^OPENSEARCH_INITIAL_MASTERS=.*/OPENSEARCH_INITIAL_MASTERS=${OPENSEARCH_INITIAL_MASTERS}/" .env
+fi
+
+
+# Check for network conflicts and recreate if needed
+echo "🔍 Checking network configuration..."
+EXISTING_SHUFFLE_NET=$(docker network inspect shuffle_shuffle 2>/dev/null || echo "null")
+if [[ "${EXISTING_SHUFFLE_NET}" != "null" && "${EXISTING_SHUFFLE_NET}" != "[]" ]]; then
+  CURRENT_SUBNET=$(echo "${EXISTING_SHUFFLE_NET}" | grep -o '"Subnet": "[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
+  if [[ -n "${CURRENT_SUBNET}" && "${CURRENT_SUBNET}" != "10.224.0.0/16" ]]; then
+    echo "🔧 Detected incompatible network configuration (${CURRENT_SUBNET}), recreating networks..."
+    echo "⚠️  Temporarily removing stack to recreate networks with non-conflicting IP ranges..."
+    docker stack rm "${STACK_NAME}" 2>/dev/null || true
+    echo "⏳ Waiting for stack cleanup..."
+    sleep 20
+    # Wait for networks to be fully removed
+    while docker network ls | grep -q "shuffle_shuffle"; do
+      echo "⏳ Waiting for network cleanup to complete..."
+      sleep 5
+    done
+  fi
 fi
 
 # Deploy
