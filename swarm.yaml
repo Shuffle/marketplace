@@ -14,6 +14,8 @@ services:
         delay: 10s
         max_attempts: 3
         window: 60s
+      placement:
+        max_replicas_per_node: 1
 
   backend:
     image: ghcr.io/shuffle/shuffle-backend:nightly
@@ -33,6 +35,8 @@ services:
         delay: 10s
         max_attempts: 3
         window: 60s
+      placement:
+        max_replicas_per_node: 1
 
   orborus:
     image: ghcr.io/shuffle/shuffle-orborus:nightly
@@ -64,18 +68,19 @@ services:
 
   opensearch:
     image: opensearchproject/opensearch:3.0.0
-    hostname: shuffle-opensearch
     env_file: .env
     environment:
       - OPENSEARCH_JAVA_OPTS=-Xms2048m -Xmx2048m
       - bootstrap.memory_lock=false
       - DISABLE_PERFORMANCE_ANALYZER_AGENT_CLI=true
-      - cluster.initial_master_nodes=shuffle-opensearch
       - cluster.routing.allocation.disk.threshold_enabled=false
       - cluster.name=shuffle-cluster
-      - node.name=shuffle-opensearch
+      - node.name=shuffle-opensearch-{{.Task.Slot}}
       - node.store.allow_mmap=false
-      - discovery.seed_hosts=shuffle-opensearch
+      - discovery.seed_hosts=tasks.shuffle_opensearch
+      - cluster.initial_master_nodes=${OPENSEARCH_INITIAL_MASTERS}
+      - network.host=0.0.0.0
+      - action.auto_create_index=true
       - DISABLE_SECURITY_PLUGIN=true
     ulimits:
       memlock:
@@ -84,18 +89,17 @@ services:
       nofile:
         soft: 65536
         hard: 65536
-    volumes:
-      - shuffle-database:/usr/share/opensearch/data
     networks:
       - shuffle
     deploy:
-      replicas: ${SWARM_NODE_COUNT}
+      replicas: ${OPENSEARCH_REPLICAS}
       restart_policy:
         condition: any
         delay: 15s
         max_attempts: 3
         window: 60s
       placement:
+        max_replicas_per_node: 1
         preferences:
           - spread: node.id
       resources:
@@ -112,7 +116,8 @@ services:
     networks:
       - shuffle
     volumes:
-      - ./nginx-main.conf:/etc/nginx/nginx.conf:ro
+      - nginx-config:/nginx-config:ro
+    command: sh -c "cp /nginx-config/nginx-main.conf /etc/nginx/nginx.conf && nginx -g 'daemon off;'"
     deploy:
       replicas: ${SWARM_NODE_COUNT}
       restart_policy:
@@ -120,10 +125,12 @@ services:
         delay: 10s
         max_attempts: 3
         window: 60s
+      placement:
+        max_replicas_per_node: 1
 
   memcached:
     image: memcached:latest
-    hostname: shuffle-cache
+    hostname: shuffle_memcached
     networks:
       - shuffle
     env_file: .env
@@ -134,9 +141,6 @@ services:
         delay: 10s
         max_attempts: 3
         window: 60s
-      placement:
-        constraints:
-          - node.hostname == shuffle-vm1
       resources:
         limits:
           memory: 1G
@@ -159,12 +163,15 @@ volumes:
       o: "addr=${NFS_MASTER_IP},nfsvers=3,proto=tcp,rw,soft,intr,port=2049,mountport=51771,resvport,nolock,timeo=600,retrans=2"
       device: ":/srv/nfs/shuffle-files"
 
-  shuffle-database:
+# OpenSearch uses local storage with built-in replication
+  # No shared volume needed for shuffle-database
+
+  nginx-config:
     driver: local
     driver_opts:
       type: nfs
-      o: "addr=${NFS_MASTER_IP},nfsvers=3,proto=tcp,rw,soft,intr,port=2049,mountport=51771,resvport,nolock,timeo=600,retrans=2"
-      device: ":/srv/nfs/shuffle-database"
+      o: "addr=${NFS_MASTER_IP},nfsvers=3,proto=tcp,ro,soft,intr,port=2049,mountport=51771,resvport,nolock,timeo=600,retrans=2"
+      device: ":/srv/nfs/nginx-config"
 
 networks:
   shuffle:
@@ -172,12 +179,14 @@ networks:
     attachable: true
     driver_opts:
       com.docker.network.driver.mtu: "1500"
-    ipam:
-      config:
-        - subnet: 10.10.0.0/24
+    #ipam:
+    #  driver: default
+    #  config:
+    #    - subnet: 172.30.0.0/16
   swarm_executions:
     driver: overlay
     attachable: true
-    ipam:
-      config:
-        - subnet: 10.11.0.0/24
+    #ipam:
+    #  driver: default
+    #  config:
+    #    - subnet: 172.28.0.0/16
