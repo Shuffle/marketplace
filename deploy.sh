@@ -143,14 +143,14 @@ if [[ "${EXISTING_SHUFFLE_NET}" != "null" && "${EXISTING_SHUFFLE_NET}" != "[]" ]
   if [[ -n "${CURRENT_SUBNET}" && "${CURRENT_SUBNET}" != "10.224.0.0/16" ]]; then
     echo "🔧 Detected incompatible network configuration (${CURRENT_SUBNET}), recreating networks..."
     echo "⚠️  Temporarily removing stack to recreate networks with non-conflicting IP ranges..."
-    docker stack rm "${STACK_NAME}" 2>/dev/null || true
-    echo "⏳ Waiting for stack cleanup..."
-    sleep 20
+    #docker stack rm "${STACK_NAME}" 2>/dev/null || true
+    #echo "⏳ Waiting for stack cleanup..."
+    #sleep 20
     # Wait for networks to be fully removed
-    while docker network ls | grep -q "shuffle_shuffle"; do
-      echo "⏳ Waiting for network cleanup to complete..."
-      sleep 5
-    done
+    #while docker network ls | grep -q "shuffle_shuffle"; do
+    #  echo "⏳ Waiting for network cleanup to complete..."
+    #  sleep 5
+    #done
   fi
 fi
 
