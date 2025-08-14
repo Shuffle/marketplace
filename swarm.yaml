@@ -173,6 +173,7 @@ volumes:
       o: "addr=${NFS_MASTER_IP},nfsvers=3,proto=tcp,ro,soft,intr,port=2049,mountport=51771,resvport,nolock,timeo=600,retrans=2"
       device: ":/srv/nfs/nginx-config"
 
+
 networks:
   shuffle:
     driver: overlay
