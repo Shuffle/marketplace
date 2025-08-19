@@ -104,16 +104,6 @@ spec:
       varType: boolean
       defaultValue: true
       
-    - name: shuffle_admin_user
-      description: Admin username for Shuffle
-      varType: string
-      defaultValue: admin@shuffle.local
-      
-    - name: shuffle_org_name
-      description: Organization name for Shuffle
-      varType: string
-      defaultValue: Shuffle Organization
-      
     outputs:
     - name: shuffle_frontend_url
       description: URL to access Shuffle Frontend (port 3001)

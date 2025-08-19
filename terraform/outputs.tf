@@ -22,10 +22,6 @@ output "admin_password" {
   sensitive   = true
 }
 
-output "admin_username" {
-  description = "Admin username for Shuffle"
-  value       = var.shuffle_admin_user
-}
 
 output "manager_instances" {
   description = "List of manager instance details"
@@ -100,11 +96,7 @@ output "post_deployment_instructions" {
     
     Note: Only port 3001 is exposed externally for security.
     All other services are accessible only within the VPC.
-    
-    Login Credentials:
-    - Username: ${var.shuffle_admin_user}
-    - Password: <Check 'admin_password' output with: terraform output -raw admin_password>
-    
+     
     Cluster Information:
     - Total Nodes: ${local.total_nodes}
     - Manager Nodes: ${local.manager_nodes}

@@ -115,14 +115,3 @@ variable "enable_cloud_monitoring" {
   default     = true
 }
 
-variable "shuffle_admin_user" {
-  description = "Admin username for Shuffle"
-  type        = string
-  default     = "admin@shuffle.local"
-}
-
-variable "shuffle_org_name" {
-  description = "Organization name for Shuffle"
-  type        = string
-  default     = "Shuffle Organization"
-}
