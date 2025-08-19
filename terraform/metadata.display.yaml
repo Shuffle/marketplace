@@ -1,0 +1,139 @@
+apiVersion: blueprints.cloud.google.com/v1alpha1
+kind: BlueprintMetadata
+metadata:
+  name: shuffle-swarm-cluster
+  annotations:
+    config.kubernetes.io/local-config: "true"
+spec:
+  info:
+    title: Shuffle Security Orchestration Platform
+    version: 1.0.0
+    actuationTool:
+      flavor: Terraform
+      version: ">= 1.0"
+    description: |
+      Shuffle is an open-source security orchestration, automation and response (SOAR) platform 
+      that helps security teams automate repetitive tasks and connect different security tools.
+    
+  content:
+    documentation:
+    - title: Shuffle Documentation
+      url: https://shuffler.io/docs
+    - title: Getting Started Guide
+      url: https://shuffler.io/docs/getting_started
+    
+    architecture:
+    - Distributed Docker Swarm cluster with automatic NFS configuration
+    - Scalable from 1 to 10 nodes
+    - OpenSearch for data storage and search
+    - Load balanced frontend and backend services
+    
+    examples:
+    - name: single-node
+      location: examples/single_node
+    - name: multi-node-ha
+      location: examples/multi_node_ha
+      
+  interfaces:
+    variables:
+    - name: project_id
+      description: Google Cloud Project ID
+      varType: string
+      required: true
+    
+    - name: goog_cm_deployment_name
+      description: Deployment name (auto-generated)
+      varType: string
+      required: true
+      
+    - name: region
+      description: Deployment region
+      varType: string
+      defaultValue: us-central1
+      
+    - name: node_count
+      description: Total number of VMs in the cluster (1-10)
+      varType: integer
+      defaultValue: 1
+      min: 1
+      max: 10
+      
+    - name: machine_type
+      description: Machine type for cluster nodes
+      varType: string
+      defaultValue: e2-standard-2
+      
+    - name: boot_disk_size
+      description: Boot disk size in GB
+      varType: integer
+      defaultValue: 120
+      min: 50
+      max: 1000
+      
+    - name: boot_disk_type
+      description: Boot disk type
+      varType: string
+      defaultValue: pd-standard
+      enum:
+      - pd-standard
+      - pd-ssd
+      - pd-balanced
+      
+    - name: external_access_cidrs
+      description: CIDR ranges allowed to access Shuffle UI
+      varType: string
+      defaultValue: 0.0.0.0/0
+      
+    - name: enable_ssh
+      description: Enable SSH access to nodes
+      varType: boolean
+      defaultValue: true
+      
+    - name: ssh_source_ranges
+      description: CIDR ranges allowed for SSH access
+      varType: string
+      defaultValue: 0.0.0.0/0
+      
+    - name: enable_cloud_logging
+      description: Enable Google Cloud Logging
+      varType: boolean
+      defaultValue: true
+      
+    - name: enable_cloud_monitoring
+      description: Enable Google Cloud Monitoring
+      varType: boolean
+      defaultValue: true
+      
+    - name: shuffle_admin_user
+      description: Admin username for Shuffle
+      varType: string
+      defaultValue: admin@shuffle.local
+      
+    - name: shuffle_org_name
+      description: Organization name for Shuffle
+      varType: string
+      defaultValue: Shuffle Organization
+      
+    outputs:
+    - name: shuffle_frontend_url
+      description: URL to access Shuffle Frontend (port 3001)
+    - name: opensearch_internal_url
+      description: Internal URL to access OpenSearch (VPC only)
+    - name: admin_password
+      description: Auto-generated admin password (sensitive)
+    - name: total_nodes
+      description: Total number of nodes in the cluster
+    - name: post_deployment_instructions
+      description: Instructions after deployment
+      
+  requirements:
+    services:
+    - compute.googleapis.com
+    - logging.googleapis.com
+    - monitoring.googleapis.com
+    
+    roles:
+    - roles/compute.instanceAdmin.v1
+    - roles/compute.networkAdmin
+    - roles/compute.securityAdmin
+    - roles/iam.serviceAccountUser
