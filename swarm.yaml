@@ -91,6 +91,9 @@ services:
         hard: 65536
     networks:
       - shuffle
+
+    volumes:
+      - shuffle-database:/usr/share/opensearch/data
     deploy:
       replicas: ${OPENSEARCH_REPLICAS}
       restart_policy:
@@ -163,8 +166,12 @@ volumes:
       o: "addr=${NFS_MASTER_IP},nfsvers=3,proto=tcp,rw,soft,intr,port=2049,mountport=51771,resvport,nolock,timeo=600,retrans=2"
       device: ":/srv/nfs/shuffle-files"
 
-# OpenSearch uses local storage with built-in replication
-  # No shared volume needed for shuffle-database
+  shuffle-database:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/shuffle-database
 
   nginx-config:
     driver: local
