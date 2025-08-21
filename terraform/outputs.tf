@@ -28,15 +28,6 @@ output "manager_instances" {
   }]
 }
 
-output "worker_instances" {
-  description = "List of worker instance details"
-  value = [for instance in google_compute_instance.swarm_worker : {
-    name        = instance.name
-    internal_ip = instance.network_interface[0].network_ip
-    external_ip = instance.network_interface[0].access_config[0].nat_ip
-    zone        = instance.zone
-  }]
-}
 
 output "total_nodes" {
   description = "Total number of nodes in the cluster"
@@ -48,10 +39,6 @@ output "manager_nodes" {
   value       = local.manager_nodes
 }
 
-output "worker_nodes" {
-  description = "Number of worker nodes"
-  value       = local.worker_nodes
-}
 
 output "network_name" {
   description = "Name of the VPC network"
@@ -95,8 +82,7 @@ output "post_deployment_instructions" {
     
     Cluster Information:
     - Total Nodes: ${local.total_nodes}
-    - Manager Nodes: ${local.manager_nodes}
-    - Worker Nodes: ${local.worker_nodes}
+    - All nodes are Swarm managers
     
     Management:
     - SSH to primary manager: gcloud compute ssh ${google_compute_instance.swarm_manager[0].name} --zone=${google_compute_instance.swarm_manager[0].zone}

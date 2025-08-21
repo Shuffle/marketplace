@@ -24,8 +24,8 @@ locals {
   zones = length(var.zones) > 0 ? var.zones : data.google_compute_zones.available.names
 
   total_nodes   = var.node_count
-  manager_nodes = min(var.node_count, 3)
-  worker_nodes  = max(0, var.node_count - local.manager_nodes)
+  manager_nodes = var.node_count  # All nodes are managers
+  worker_nodes  = 0                # No dedicated worker nodes
 
   opensearch_replicas       = min(local.total_nodes, 3)
   opensearch_index_replicas = local.opensearch_replicas - 1
@@ -160,7 +160,6 @@ resource "google_compute_instance" "swarm_manager" {
     deployment-name = local.deployment_name
     total-nodes     = local.total_nodes
     manager-nodes   = local.manager_nodes
-    worker-nodes    = local.worker_nodes
 
     nfs-master-ip   = count.index == 0 ? "self" : "PRIMARY_MANAGER_IP"
     primary-manager = count.index == 0 ? "self" : "PRIMARY_MANAGER_IP"
@@ -195,70 +194,7 @@ resource "google_compute_instance" "swarm_manager" {
   ]
 }
 
-resource "google_compute_instance" "swarm_worker" {
-  count        = local.worker_nodes
-  name         = "${local.deployment_name}-worker-${count.index + 1}"
-  machine_type = var.machine_type
-  zone         = local.zones[(count.index + local.manager_nodes) % length(local.zones)]
-  project      = var.project_id
-
-  boot_disk {
-    initialize_params {
-      image = var.source_image != "" ? var.source_image : "projects/ubuntu-os-cloud/global/images/family/ubuntu-2204-lts"
-      size  = var.boot_disk_size
-      type  = var.boot_disk_type
-    }
-  }
-
-  network_interface {
-    subnetwork = google_compute_subnetwork.shuffle_subnet.id
-
-    access_config {
-      network_tier = "PREMIUM"
-    }
-  }
-
-  metadata = {
-    enable-oslogin = "FALSE"
-
-    node-role       = "worker"
-    node-index      = count.index + local.manager_nodes
-    deployment-name = local.deployment_name
-    total-nodes     = local.total_nodes
-
-    nfs-master-ip   = "PRIMARY_MANAGER_IP"
-    primary-manager = "PRIMARY_MANAGER_IP"
-
-    opensearch-replicas        = local.opensearch_replicas
-    opensearch-index-replicas  = local.opensearch_index_replicas
-    opensearch-initial-masters = local.opensearch_initial_masters
-
-    startup-script = file("${path.module}/scripts/startup-simple.sh")
-  }
-
-  service_account {
-    scopes = [
-      "https://www.googleapis.com/auth/compute.readonly",
-      "https://www.googleapis.com/auth/cloud-platform",
-      "https://www.googleapis.com/auth/logging.write",
-      "https://www.googleapis.com/auth/monitoring.write"
-    ]
-  }
-
-  tags = ["${local.deployment_name}-node", "${local.deployment_name}-worker"]
-
-  labels = {
-    deployment  = local.deployment_name
-    node-role   = "worker"
-    environment = var.environment
-  }
-
-  depends_on = [
-    google_compute_instance.swarm_manager,
-    google_compute_firewall.swarm_internal,
-    google_compute_firewall.shuffle_external
-  ]
-}
+# All nodes are now managers - no separate worker nodes needed
 
 resource "google_compute_instance_group" "managers" {
   count = local.manager_nodes > 0 ? 1 : 0

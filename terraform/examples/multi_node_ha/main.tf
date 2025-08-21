@@ -4,7 +4,7 @@ module "shuffle" {
   project_id              = var.project_id
   goog_cm_deployment_name = "shuffle-ha-cluster"
   region                  = "australia-southeast1"
-  node_count              = 5 # 3 managers + 2 workers
+  node_count              = 5 # All nodes are managers
   machine_type            = "e2-standard-4"
   boot_disk_size          = 200
   boot_disk_type          = "pd-ssd"
@@ -27,7 +27,6 @@ output "cluster_info" {
   value = {
     total_nodes   = module.shuffle.total_nodes
     manager_nodes = module.shuffle.manager_nodes
-    worker_nodes  = module.shuffle.worker_nodes
     nfs_server_ip = module.shuffle.nfs_server_ip
   }
 }

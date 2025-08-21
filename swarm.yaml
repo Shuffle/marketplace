@@ -172,7 +172,7 @@ volumes:
     driver_opts:
       type: none
       o: bind
-      device: /opt/shuffle-database
+      device: /opt/shuffle/shuffle-database
 
   nginx-config:
     driver: local
