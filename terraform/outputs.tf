@@ -96,7 +96,10 @@ output "post_deployment_instructions" {
     
     Note: Only port 3001 is exposed externally for security.
     All other services are accessible only within the VPC.
-     
+    
+    Login Credentials:
+    - Password: <Check 'admin_password' output with: terraform output -raw admin_password>
+    
     Cluster Information:
     - Total Nodes: ${local.total_nodes}
     - Manager Nodes: ${local.manager_nodes}
