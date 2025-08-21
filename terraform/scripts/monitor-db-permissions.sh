@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# Monitor and fix permissions for /opt/shuffle-database directory
+# Monitor and fix permissions for /opt/shuffle/shuffle-database directory
 # This script runs perpetually checking every 5 seconds until the directory
 # exists with correct permissions (owned by 1000:1000)
 
-SHUFFLE_DB_DIR="/opt/shuffle-database"
+SHUFFLE_DB_DIR="/opt/shuffle/shuffle-database"
 TARGET_UID=1000
 TARGET_GID=1000
 CHECK_INTERVAL=5

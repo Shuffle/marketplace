@@ -48,6 +48,10 @@ fi
 
 # Setup directories
 mkdir -p /opt/shuffle
+mkdir -p /opt/shuffle/shuffle-database
+chown 1000:1000 /opt/shuffle/shuffle-database
+chmod 755 /opt/shuffle/shuffle-database
+echo "Created /opt/shuffle/shuffle-database with correct permissions"
 mkdir -p /var/lib/shuffle-shared
 
 # For single node deployment, always make it the primary
@@ -83,11 +87,7 @@ if [[ "${NODE_ROLE}" == "manager" ]] && [[ "${IS_PRIMARY}" == "true" ]]; then
   curl -o swarm-nfs.yaml https://raw.githubusercontent.com/Shuffle/marketplace/refs/heads/master/swarm.yaml
   curl -o setup-nfs-server.sh https://raw.githubusercontent.com/Shuffle/marketplace/refs/heads/master/setup-nfs-server.sh
   curl -o .env https://raw.githubusercontent.com/Shuffle/marketplace/refs/heads/master/.env
-  
-  # Update SHUFFLE_APP_REPLICA to 2 for better availability
-  sed -i 's/^SHUFFLE_APP_REPLICA=.*/SHUFFLE_APP_REPLICA=2/' .env
-  echo "Updated SHUFFLE_APP_REPLICA to 2"
-  
+   
   chmod +x deploy.sh setup-nfs-server.sh
   
   # Download nginx configuration
@@ -181,10 +181,6 @@ else
     curl -o setup-nfs-server.sh https://raw.githubusercontent.com/Shuffle/marketplace/refs/heads/master/setup-nfs-server.sh
     curl -o .env https://raw.githubusercontent.com/Shuffle/marketplace/refs/heads/master/.env
     
-    # Update SHUFFLE_APP_REPLICA to 2 for better availability
-    sed -i 's/^SHUFFLE_APP_REPLICA=.*/SHUFFLE_APP_REPLICA=2/' .env
-    echo "Updated SHUFFLE_APP_REPLICA to 2"
-    
     chmod +x deploy.sh setup-nfs-server.sh
     
     # Wait a bit for swarm to stabilize
@@ -232,11 +228,11 @@ echo "Starting database permissions monitor..."
 cat > /opt/shuffle/monitor-db-permissions.sh << 'EOF'
 #!/bin/bash
 
-# Monitor and fix permissions for /opt/shuffle-database directory
+# Monitor and fix permissions for /opt/shuffle/shuffle-database directory
 # This script runs perpetually checking every 5 seconds until the directory
 # exists with correct permissions (owned by 1000:1000)
 
-SHUFFLE_DB_DIR="/opt/shuffle-database"
+SHUFFLE_DB_DIR="/opt/shuffle/shuffle-database"
 TARGET_UID=1000
 TARGET_GID=1000
 CHECK_INTERVAL=5
