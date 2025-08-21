@@ -87,7 +87,6 @@ if [[ "${1:-}" == "apply" ]]; then
     
     # Get outputs
     FRONTEND_URL=$(terraform output -raw shuffle_frontend_url)
-    ADMIN_PASSWORD=$(terraform output -raw admin_password)
     
     echo ""
     echo "========================================"
@@ -96,8 +95,6 @@ if [[ "${1:-}" == "apply" ]]; then
     echo ""
     echo "Access Information:"
     echo "  Frontend URL: $FRONTEND_URL"
-    echo "  Username: admin@shuffle.local"
-    echo "  Password: $ADMIN_PASSWORD"
     echo ""
     echo "SSH Access:"
     echo "  gcloud compute ssh --zone=\"australia-southeast1-a\" \"$DEPLOYMENT_NAME-manager-1\" --project=\"$PROJECT_ID\""

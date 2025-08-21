@@ -16,11 +16,6 @@ output "opensearch_internal_url" {
   value       = "http://${google_compute_instance.swarm_manager[0].network_interface[0].network_ip}:9200"
 }
 
-output "admin_password" {
-  description = "Admin password for Shuffle (auto-generated)"
-  value       = random_password.admin_password.result
-  sensitive   = true
-}
 
 
 output "manager_instances" {
@@ -97,8 +92,6 @@ output "post_deployment_instructions" {
     Note: Only port 3001 is exposed externally for security.
     All other services are accessible only within the VPC.
     
-    Login Credentials:
-    - Password: <Check 'admin_password' output with: terraform output -raw admin_password>
     
     Cluster Information:
     - Total Nodes: ${local.total_nodes}

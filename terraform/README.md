@@ -53,10 +53,6 @@ module "shuffle" {
    terraform apply -var project_id=YOUR_PROJECT_ID
    ```
 
-4. Get admin password:
-   ```bash
-   terraform output -raw admin_password
-   ```
 
 ## Configuration Options
 
@@ -116,7 +112,6 @@ After deployment, access Shuffle at:
 ### Default Credentials
 
 - **Username**: `admin@shuffle.local` (configurable)
-- **Password**: Auto-generated (retrieve with `terraform output -raw admin_password`)
 
 ### Management Commands
 

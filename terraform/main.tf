@@ -40,10 +40,6 @@ data "google_compute_zones" "available" {
   status  = "UP"
 }
 
-resource "random_password" "admin_password" {
-  length  = 16
-  special = true
-}
 
 resource "google_compute_network" "shuffle_network" {
   name                    = local.network_name
@@ -172,8 +168,6 @@ resource "google_compute_instance" "swarm_manager" {
     opensearch-replicas        = local.opensearch_replicas
     opensearch-index-replicas  = local.opensearch_index_replicas
     opensearch-initial-masters = local.opensearch_initial_masters
-
-    admin-password = random_password.admin_password.result
 
     startup-script = file("${path.module}/scripts/startup-simple.sh")
   }

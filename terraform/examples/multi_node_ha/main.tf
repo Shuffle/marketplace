@@ -22,10 +22,6 @@ output "frontend_url" {
   value = module.shuffle.shuffle_frontend_url
 }
 
-output "admin_password" {
-  value     = module.shuffle.admin_password
-  sensitive = true
-}
 
 output "cluster_info" {
   value = {

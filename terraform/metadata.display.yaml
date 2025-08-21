@@ -109,8 +109,6 @@ spec:
       description: URL to access Shuffle Frontend (port 3001)
     - name: opensearch_internal_url
       description: Internal URL to access OpenSearch (VPC only)
-    - name: admin_password
-      description: Auto-generated admin password (sensitive)
     - name: total_nodes
       description: Total number of nodes in the cluster
     - name: post_deployment_instructions
