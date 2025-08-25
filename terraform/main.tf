@@ -197,13 +197,13 @@ resource "google_compute_instance" "swarm_manager" {
 # All nodes are now managers - no separate worker nodes needed
 
 resource "google_compute_instance_group" "managers" {
-  count = local.manager_nodes > 0 ? 1 : 0
+  count = local.manager_nodes
 
-  name    = "${local.deployment_name}-managers"
-  zone    = local.zones[0]
+  name    = "${local.deployment_name}-managers-${count.index + 1}"
+  zone    = local.zones[count.index % length(local.zones)]
   project = var.project_id
 
-  instances = [for instance in google_compute_instance.swarm_manager : instance.self_link]
+  instances = [google_compute_instance.swarm_manager[count.index].self_link]
 
   named_port {
     name = "http"
