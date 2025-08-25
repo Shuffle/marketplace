@@ -73,7 +73,8 @@ if [[ "${NODE_ROLE}" == "manager" ]] && [[ "${IS_PRIMARY}" == "true" ]]; then
   
   # Download Shuffle deployment files
   curl -o deploy.sh https://raw.githubusercontent.com/Shuffle/marketplace/refs/heads/master/deploy.sh
-  curl -o swarm-nfs.yaml https://raw.githubusercontent.com/Shuffle/marketplace/refs/heads/master/swarm.yaml
+  # Use our local fixed swarm.yaml instead of downloading the remote buggy one
+  curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/swarm-yaml" > ./swarm-nfs.yaml
   curl -o setup-nfs-server.sh https://raw.githubusercontent.com/Shuffle/marketplace/refs/heads/master/setup-nfs-server.sh
   curl -o .env https://raw.githubusercontent.com/Shuffle/marketplace/refs/heads/master/.env
    
@@ -110,16 +111,17 @@ else
   # Wait for primary manager to initialize Docker Swarm
   echo "Waiting for primary manager to initialize swarm..."
   for i in {1..60}; do
-    # Try to get the join token from the primary via SSH
-    MANAGER_TOKEN=$(gcloud compute ssh ${DEPLOYMENT_NAME}-manager-1 --zone=${PRIMARY_ZONE} --command="sudo docker swarm join-token manager -q" 2>/dev/null || echo "")
+    # Try to get the join token from the primary via SSH with proper flags
+    MANAGER_TOKEN=$(gcloud compute ssh ${DEPLOYMENT_NAME}-manager-1 --zone=${PRIMARY_ZONE} --ssh-flag="-o StrictHostKeyChecking=no" --ssh-flag="-o UserKnownHostsFile=/dev/null" --command="sudo docker swarm join-token manager -q" 2>/dev/null || echo "")
     
-    if [[ -n "${MANAGER_TOKEN}" ]]; then
-      echo "Got swarm manager join token"
+    # Validate the token format
+    if [[ -n "${MANAGER_TOKEN}" ]] && [[ "${MANAGER_TOKEN}" == SWMTKN-* ]]; then
+      echo "Got valid swarm manager join token: ${MANAGER_TOKEN:0:20}..."
       break
     fi
     
     echo "Waiting for swarm to be initialized... (attempt $i/60)"
-    sleep 5
+    sleep 10
   done
   
   if [[ -z "${MANAGER_TOKEN}" ]]; then
@@ -129,16 +131,27 @@ else
   
   # Join the swarm as manager
   echo "Joining swarm as manager..."
-  docker swarm join --token ${MANAGER_TOKEN} ${PRIMARY_IP}:2377
+  echo "Token: ${MANAGER_TOKEN:0:20}..."
+  echo "Primary IP: ${PRIMARY_IP}"
   
-  echo "Successfully joined swarm as manager"
+  if docker swarm join --token "${MANAGER_TOKEN}" "${PRIMARY_IP}:2377"; then
+    echo "Successfully joined swarm as manager"
+  else
+    echo "ERROR: Failed to join swarm. Retrying..."
+    sleep 10
+    docker swarm join --token "${MANAGER_TOKEN}" "${PRIMARY_IP}:2377" || {
+      echo "ERROR: Failed to join swarm after retry"
+      exit 1
+    }
+  fi
   
   # Download and setup Shuffle files for this manager
   cd /opt/shuffle
   
   # Download Shuffle deployment files
   curl -o deploy.sh https://raw.githubusercontent.com/Shuffle/marketplace/refs/heads/master/deploy.sh
-  curl -o swarm-nfs.yaml https://raw.githubusercontent.com/Shuffle/marketplace/refs/heads/master/swarm.yaml
+  # Use our local fixed swarm.yaml instead of downloading the remote buggy one
+  curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/swarm-yaml" > ./swarm-nfs.yaml
   curl -o setup-nfs-server.sh https://raw.githubusercontent.com/Shuffle/marketplace/refs/heads/master/setup-nfs-server.sh
   curl -o .env https://raw.githubusercontent.com/Shuffle/marketplace/refs/heads/master/.env
   

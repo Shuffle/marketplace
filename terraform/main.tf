@@ -169,6 +169,7 @@ resource "google_compute_instance" "swarm_manager" {
     opensearch-initial-masters = local.opensearch_initial_masters
 
     startup-script = file("${path.module}/scripts/startup-simple.sh")
+    swarm-yaml = file("${path.module}/../swarm.yaml")
   }
 
   service_account {
