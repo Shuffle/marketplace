@@ -71,7 +71,7 @@ services:
     image: opensearchproject/opensearch:3.0.0
     env_file: .env
     environment:
-      - OPENSEARCH_JAVA_OPTS=-Xms4g -Xmx4g
+      - OPENSEARCH_JAVA_OPTS=-Xms6g -Xmx6g
       - bootstrap.memory_lock=false
       - DISABLE_PERFORMANCE_ANALYZER_AGENT_CLI=true
       - cluster.routing.allocation.disk.threshold_enabled=false
@@ -108,9 +108,9 @@ services:
           - spread: node.id
       resources:
         limits:
-          memory: 4G
+          memory: 8G
         reservations:
-          memory: 2G
+          memory: 6G
 
   load-balancer:
     image: nginx:alpine
