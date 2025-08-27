@@ -79,10 +79,21 @@ services:
       - node.name=shuffle-opensearch-{{.Task.Slot}}
       - node.store.allow_mmap=false
       - discovery.seed_hosts=tasks.shuffle_opensearch
-      - cluster.initial_master_nodes=${OPENSEARCH_INITIAL_MASTERS}
+      - cluster.initial_cluster_manager_nodes=
+      - discovery.type=zen
+      - discovery.zen.ping.unicast.hosts=tasks.shuffle_opensearch
+      - discovery.zen.minimum_master_nodes=1
+      - discovery.zen.ping_timeout=30s
+      - discovery.zen.fd.ping_timeout=60s
+      - discovery.zen.fd.ping_retries=5
+      - cluster.routing.allocation.enable=all
+      - gateway.expected_nodes=1
+      - gateway.recover_after_nodes=1
+      - discovery.zen.no_master_block=write
       - network.host=0.0.0.0
       - action.auto_create_index=true
       - DISABLE_SECURITY_PLUGIN=true
+      - cluster.fault_detection.leader_check.retry_count=5
     ulimits:
       memlock:
         soft: -1
@@ -92,20 +103,26 @@ services:
         hard: 65536
     networks:
       - shuffle
-
     volumes:
       - shuffle-database:/usr/share/opensearch/data
     deploy:
       replicas: ${OPENSEARCH_REPLICAS}
+      endpoint_mode: dnsrr
       restart_policy:
         condition: any
-        delay: 15s
-        max_attempts: 3
-        window: 60s
+        delay: 30s
+        max_attempts: 5
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 30s
+        failure_action: rollback
       placement:
         max_replicas_per_node: 1
         preferences:
           - spread: node.id
+        constraints:
+          - node.role == manager
       resources:
         limits:
           memory: 8G
@@ -188,14 +205,6 @@ networks:
     attachable: true
     driver_opts:
       com.docker.network.driver.mtu: "1500"
-    #ipam:
-    #  driver: default
-    #  config:
-    #    - subnet: 172.30.0.0/16
   swarm_executions:
     driver: overlay
     attachable: true
-    #ipam:
-    #  driver: default
-    #  config:
-    #    - subnet: 172.28.0.0/16
