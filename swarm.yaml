@@ -12,10 +12,14 @@ services:
       restart_policy:
         condition: any
         delay: 10s
-        max_attempts: 3
+        max_attempts: 0  # Unlimited restarts for resilience
         window: 60s
       placement:
         max_replicas_per_node: 1
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
 
   backend:
     image: ghcr.io/shuffle/shuffle-backend:nightly
@@ -33,10 +37,14 @@ services:
       restart_policy:
         condition: any
         delay: 10s
-        max_attempts: 3
+        max_attempts: 0  # Unlimited restarts for resilience
         window: 60s
       placement:
         max_replicas_per_node: 1
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
 
   orborus:
     image: ghcr.io/shuffle/shuffle-orborus:nightly
@@ -61,7 +69,7 @@ services:
       restart_policy:
         condition: any
         delay: 10s
-        max_attempts: 3
+        max_attempts: 0  # Unlimited restarts for resilience
         window: 60s
       placement:
         preferences:
@@ -71,18 +79,59 @@ services:
     image: opensearchproject/opensearch:3.0.0
     env_file: .env
     environment:
-      - OPENSEARCH_JAVA_OPTS=-Xms6g -Xmx6g
+      - OPENSEARCH_JAVA_OPTS=-Xms4g -Xmx4g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:G1HeapRegionSize=16m
       - bootstrap.memory_lock=false
       - DISABLE_PERFORMANCE_ANALYZER_AGENT_CLI=true
-      - cluster.routing.allocation.disk.threshold_enabled=false
+      - cluster.routing.allocation.disk.threshold_enabled=true
       - cluster.name=shuffle-cluster
       - node.name=shuffle-opensearch-{{.Task.Slot}}
       - node.store.allow_mmap=false
-      - discovery.seed_hosts=tasks.shuffle_opensearch
-      - cluster.initial_master_nodes=${OPENSEARCH_INITIAL_MASTERS}
+      - discovery.type=single-node
       - network.host=0.0.0.0
       - action.auto_create_index=true
       - DISABLE_SECURITY_PLUGIN=true
+      # Production thread pool settings
+      - thread_pool.search.size=16
+      - thread_pool.search.queue_size=10000
+      - thread_pool.write.size=8
+      - thread_pool.write.queue_size=1000
+      - thread_pool.get.size=8
+      - thread_pool.get.queue_size=5000
+      - thread_pool.bulk.size=8
+      - thread_pool.bulk.queue_size=200
+      # Circuit breaker settings
+      - indices.breaker.total.limit=85%
+      - indices.breaker.request.limit=60%
+      - indices.breaker.fielddata.limit=40%
+      - indices.breaker.in_flight_requests.limit=100%
+      # Memory settings
+      - indices.memory.index_buffer_size=30%
+      - indices.memory.min_index_buffer_size=256mb
+      - indices.queries.cache.size=20%
+      - indices.requests.cache.size=10%
+      - indices.fielddata.cache.size=20%
+      # Indexing performance
+      - index.refresh_interval=10s
+      - index.number_of_shards=3
+      - index.number_of_replicas=0
+      - index.translog.flush_threshold_size=1gb
+      - index.translog.durability=async
+      # Search settings
+      - search.default_search_timeout=60s
+      - search.max_buckets=50000
+      - search.allow_expensive_queries=false
+      # Bulk settings
+      - bulk.queue_size=1000
+      - bulk.max_operations=10000
+      - bulk.max_size=100mb
+      # HTTP settings
+      - http.max_content_length=200mb
+      - http.max_header_size=16kb
+      - http.max_initial_line_length=8kb
+      # Disk watermarks
+      - cluster.routing.allocation.disk.watermark.low=80%
+      - cluster.routing.allocation.disk.watermark.high=90%
+      - cluster.routing.allocation.disk.watermark.flood_stage=95%
     ulimits:
       memlock:
         soft: -1
@@ -92,7 +141,6 @@ services:
         hard: 65536
     networks:
       - shuffle
-
     volumes:
       - shuffle-database:/usr/share/opensearch/data
     deploy:
@@ -100,7 +148,7 @@ services:
       restart_policy:
         condition: any
         delay: 15s
-        max_attempts: 3
+        max_attempts: 0  # Unlimited restarts for resilience
         window: 60s
       update_config:
         parallelism: 1
@@ -112,9 +160,28 @@ services:
           - spread: node.id
       resources:
         limits:
-          memory: 8G
+          memory: 6G  # Reduced for stability
         reservations:
-          memory: 6G
+          memory: 4G
+
+  # OpenSearch Circuit Breaker - handles database failures gracefully
+  opensearch-circuit-breaker:
+    image: nginx:alpine
+    networks:
+      - shuffle
+    configs:
+      - source: opensearch_circuit_breaker_conf
+        target: /etc/nginx/nginx.conf
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 10s
+        max_attempts: 0
+        window: 60s
+      placement:
+        constraints:
+          - node.role==manager
 
   load-balancer:
     image: nginx:alpine
@@ -130,8 +197,8 @@ services:
       replicas: ${SWARM_NODE_COUNT}
       restart_policy:
         condition: any
-        delay: 30s
-        max_attempts: 0
+        delay: 10s  # Faster restart
+        max_attempts: 0  # Unlimited restarts for resilience
         window: 60s
       placement:
         max_replicas_per_node: 1
@@ -147,13 +214,17 @@ services:
       restart_policy:
         condition: any
         delay: 10s
-        max_attempts: 3
+        max_attempts: 0  # Unlimited restarts for resilience
         window: 60s
       resources:
         limits:
           memory: 1G
         reservations:
           memory: 512M
+
+configs:
+  opensearch_circuit_breaker_conf:
+    file: ./opensearch-circuit-breaker.conf
 
 volumes:
   # NFS volumes - shared across all swarm nodes (NFSv3 with pinned mountd)
@@ -184,7 +255,6 @@ volumes:
       type: nfs
       o: "addr=${NFS_MASTER_IP},nfsvers=3,proto=tcp,ro,soft,intr,port=2049,mountport=51771,resvport,nolock,timeo=600,retrans=2"
       device: ":/srv/nfs/nginx-config"
-
 
 networks:
   shuffle:
