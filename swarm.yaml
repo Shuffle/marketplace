@@ -130,8 +130,8 @@ services:
       replicas: ${SWARM_NODE_COUNT}
       restart_policy:
         condition: any
-        delay: 10s
-        max_attempts: 3
+        delay: 30s
+        max_attempts: 0
         window: 60s
       placement:
         max_replicas_per_node: 1
