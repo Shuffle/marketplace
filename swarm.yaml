@@ -79,14 +79,15 @@ services:
     image: opensearchproject/opensearch:3.0.0
     env_file: .env
     environment:
-      - OPENSEARCH_JAVA_OPTS=-Xms4g -Xmx4g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:G1HeapRegionSize=16m
+      - OPENSEARCH_JAVA_OPTS=${OPENSEARCH_JAVA_OPTS}
       - bootstrap.memory_lock=false
       - DISABLE_PERFORMANCE_ANALYZER_AGENT_CLI=true
       - cluster.routing.allocation.disk.threshold_enabled=true
       - cluster.name=shuffle-cluster
       - node.name=shuffle-opensearch-{{.Task.Slot}}
       - node.store.allow_mmap=false
-      - discovery.type=single-node
+      - discovery.type=${OPENSEARCH_DISCOVERY_TYPE}
+      - cluster.initial_master_nodes=${OPENSEARCH_INITIAL_MASTERS}
       - network.host=0.0.0.0
       - action.auto_create_index=true
       - DISABLE_SECURITY_PLUGIN=true
@@ -113,7 +114,7 @@ services:
       # Indexing performance
       - index.refresh_interval=10s
       - index.number_of_shards=3
-      - index.number_of_replicas=0
+      - index.number_of_replicas=${OPENSEARCH_INDEX_REPLICAS}
       - index.translog.flush_threshold_size=1gb
       - index.translog.durability=async
       # Search settings

@@ -170,6 +170,7 @@ resource "google_compute_instance" "swarm_manager" {
 
     startup-script = file("${path.module}/scripts/startup-simple.sh")
     swarm-yaml = file("${path.module}/../swarm.yaml")
+    deploy-enhanced-script = file("${path.module}/scripts/deploy-enhanced.sh")
   }
 
   service_account {

@@ -73,12 +73,14 @@ if [[ "${NODE_ROLE}" == "manager" ]] && [[ "${IS_PRIMARY}" == "true" ]]; then
   
   # Download Shuffle deployment files
   curl -o deploy.sh https://raw.githubusercontent.com/Shuffle/marketplace/refs/heads/master/deploy.sh
+  # Get our enhanced deploy script from metadata
+  curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/deploy-enhanced-script" > ./deploy-enhanced.sh
   # Use our local fixed swarm.yaml instead of downloading the remote buggy one
-  curl -o swarm-nfs.yaml https://raw.githubusercontent.com/Shuffle/marketplace/refs/heads/master/swarm.yaml
+  curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/swarm-yaml" > ./swarm-nfs.yaml
   curl -o setup-nfs-server.sh https://raw.githubusercontent.com/Shuffle/marketplace/refs/heads/master/setup-nfs-server.sh
   curl -o .env https://raw.githubusercontent.com/Shuffle/marketplace/refs/heads/master/.env
    
-  chmod +x deploy.sh setup-nfs-server.sh
+  chmod +x deploy.sh deploy-enhanced.sh setup-nfs-server.sh
   
   # Download nginx configuration
   mkdir -p /srv/nfs/nginx-config
@@ -87,9 +89,13 @@ if [[ "${NODE_ROLE}" == "manager" ]] && [[ "${IS_PRIMARY}" == "true" ]]; then
   # Wait a bit for swarm to stabilize
   sleep 10
   
-  # Deploy Shuffle stack using the deploy script
+  # Deploy Shuffle stack using the enhanced deploy script
   echo "Deploying Shuffle stack..."
-  ./deploy.sh
+  if [[ -f ./deploy-enhanced.sh ]]; then
+    ./deploy-enhanced.sh
+  else
+    ./deploy.sh
+  fi
   
   echo "Primary manager initialization complete!"
   
@@ -150,19 +156,25 @@ else
   
   # Download Shuffle deployment files
   curl -o deploy.sh https://raw.githubusercontent.com/Shuffle/marketplace/refs/heads/master/deploy.sh
+  # Get our enhanced deploy script from metadata
+  curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/deploy-enhanced-script" > ./deploy-enhanced.sh
   # Use our local fixed swarm.yaml instead of downloading the remote buggy one
   curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/swarm-yaml" > ./swarm-nfs.yaml
   curl -o setup-nfs-server.sh https://raw.githubusercontent.com/Shuffle/marketplace/refs/heads/master/setup-nfs-server.sh
   curl -o .env https://raw.githubusercontent.com/Shuffle/marketplace/refs/heads/master/.env
   
-  chmod +x deploy.sh setup-nfs-server.sh
+  chmod +x deploy.sh deploy-enhanced.sh setup-nfs-server.sh
   
   # Wait a bit for swarm to stabilize
   sleep 10
   
   # Deploy Shuffle stack (this will update the existing stack if already deployed)
-  echo "Running deploy.sh on manager node..."
-  ./deploy.sh
+  echo "Running deploy script on manager node..."
+  if [[ -f ./deploy-enhanced.sh ]]; then
+    ./deploy-enhanced.sh
+  else
+    ./deploy.sh
+  fi
   
   echo "Manager node initialization complete!"
 fi
