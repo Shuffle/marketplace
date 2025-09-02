@@ -174,7 +174,6 @@ resource "google_compute_instance" "swarm_manager" {
     setup-nfs-server-sh = file("${path.module}/../setup-nfs-server.sh")
     env-file = file("${path.module}/../.env")
     nginx-main-conf = file("${path.module}/../nginx-main.conf")
-    opensearch-circuit-breaker-conf = file("${path.module}/../opensearch-circuit-breaker.conf")
     monitor-db-permissions-sh = file("${path.module}/scripts/monitor-db-permissions.sh")
   }
 

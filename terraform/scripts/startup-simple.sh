@@ -83,8 +83,6 @@ if [[ "${NODE_ROLE}" == "manager" ]] && [[ "${IS_PRIMARY}" == "true" ]]; then
   mkdir -p /srv/nfs/nginx-config
   curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/nginx-main-conf" > /srv/nfs/nginx-config/nginx-main.conf
   
-  # Get OpenSearch circuit breaker configuration
-  curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/opensearch-circuit-breaker-conf" > ./opensearch-circuit-breaker.conf
   
   # Wait a bit for swarm to stabilize
   sleep 10
