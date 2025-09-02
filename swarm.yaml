@@ -157,24 +157,6 @@ services:
         reservations:
           memory: 4G
 
-  # OpenSearch Circuit Breaker - handles database failures gracefully
-  opensearch-circuit-breaker:
-    image: nginx:alpine
-    networks:
-      - shuffle
-    configs:
-      - source: opensearch_circuit_breaker_conf
-        target: /etc/nginx/nginx.conf
-    deploy:
-      replicas: 1
-      restart_policy:
-        condition: any
-        delay: 10s
-        max_attempts: 0
-        window: 60s
-      placement:
-        constraints:
-          - node.role==manager
 
   load-balancer:
     image: nginx:alpine
@@ -214,10 +196,6 @@ services:
           memory: 1G
         reservations:
           memory: 512M
-
-configs:
-  opensearch_circuit_breaker_conf:
-    file: ./opensearch-circuit-breaker.conf
 
 volumes:
   # NFS volumes - shared across all swarm nodes (NFSv3 with pinned mountd)
