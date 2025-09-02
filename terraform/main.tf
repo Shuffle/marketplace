@@ -170,7 +170,12 @@ resource "google_compute_instance" "swarm_manager" {
 
     startup-script = file("${path.module}/scripts/startup-simple.sh")
     swarm-yaml = file("${path.module}/../swarm.yaml")
-    deploy-enhanced-script = file("${path.module}/scripts/deploy-enhanced.sh")
+    deploy-sh = file("${path.module}/../deploy.sh")
+    setup-nfs-server-sh = file("${path.module}/../setup-nfs-server.sh")
+    env-file = file("${path.module}/../.env")
+    nginx-main-conf = file("${path.module}/../nginx-main.conf")
+    opensearch-circuit-breaker-conf = file("${path.module}/../opensearch-circuit-breaker.conf")
+    monitor-db-permissions-sh = file("${path.module}/scripts/monitor-db-permissions.sh")
   }
 
   service_account {

@@ -72,6 +72,22 @@ else
   echo "✅ NFS server already running"
 fi
 
+# Setup local OpenSearch data directories on all nodes
+echo "🔧 Setting up local OpenSearch data directories on all nodes..."
+for NODE_ID in $(docker node ls --format "{{.ID}}"); do
+  NODE_HOSTNAME=$(docker node inspect "$NODE_ID" --format "{{.Description.Hostname}}")
+  echo "  Setting up OpenSearch data directory on ${NODE_HOSTNAME}..."
+  if [[ "$NODE_HOSTNAME" == "$(hostname)" ]]; then
+    # Local node
+    mkdir -p /opt/shuffle/shuffle-database
+    chown -R 1000:1000 /opt/shuffle/shuffle-database
+    chmod -R 755 /opt/shuffle/shuffle-database
+  else
+    # Remote node
+    docker node update --label-add setup-opensearch-storage=pending "$NODE_ID"
+  fi
+done
+
 # Ensure compose file exists
 if [[ ! -f "${COMPOSE_FILE}" ]]; then
   echo "❌ Compose file not found: ${COMPOSE_FILE}"
@@ -95,6 +111,21 @@ for i in $(seq 1 $OPENSEARCH_REPLICAS); do
 done
 echo "🔧 OpenSearch replicas: ${OPENSEARCH_REPLICAS}, index replicas: ${OPENSEARCH_INDEX_REPLICAS}, initial masters: ${OPENSEARCH_INITIAL_MASTERS}"
 
+# Set OpenSearch 3.0 compatible configurations
+# Set OpenSearch Java opts based on node count
+if [[ "${SWARM_NODE_COUNT}" -eq 1 ]]; then
+    OPENSEARCH_JAVA_OPTS="-Xms1g -Xmx1g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:G1HeapRegionSize=16m"
+    echo "🔧 Single-node deployment"
+elif [[ "${SWARM_NODE_COUNT}" -eq 2 ]]; then
+    OPENSEARCH_JAVA_OPTS="-Xms3g -Xmx3g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:G1HeapRegionSize=16m"
+    echo "🔧 Multi-node deployment: 2 nodes"
+else
+    OPENSEARCH_JAVA_OPTS="-Xms4g -Xmx4g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:G1HeapRegionSize=16m"
+    echo "🔧 Multi-node deployment: ${SWARM_NODE_COUNT} nodes"
+fi
+echo "🔧 OpenSearch cluster configuration handled by swarm.yaml"
+
+echo "🔧 OpenSearch Java opts: ${OPENSEARCH_JAVA_OPTS}"
 
 # Export env vars for compose substitution
 export NFS_MASTER_IP="${MASTER_IP}"
@@ -102,6 +133,7 @@ export SWARM_NODE_COUNT="${SWARM_NODE_COUNT}"
 export OPENSEARCH_REPLICAS="${OPENSEARCH_REPLICAS}"
 export OPENSEARCH_INDEX_REPLICAS="${OPENSEARCH_INDEX_REPLICAS}"
 export OPENSEARCH_INITIAL_MASTERS="${OPENSEARCH_INITIAL_MASTERS}"
+export OPENSEARCH_JAVA_OPTS="${OPENSEARCH_JAVA_OPTS}"
 
 # Update existing .env file with deployment vars
 if ! grep -q "^NFS_MASTER_IP=" .env 2>/dev/null; then
@@ -133,6 +165,15 @@ if ! grep -q "^OPENSEARCH_INITIAL_MASTERS=" .env 2>/dev/null; then
 else
   sed -i "s/^OPENSEARCH_INITIAL_MASTERS=.*/OPENSEARCH_INITIAL_MASTERS=${OPENSEARCH_INITIAL_MASTERS}/" .env
 fi
+
+# Discovery type is now handled in the compose file directly
+
+if ! grep -q "^OPENSEARCH_JAVA_OPTS=" .env 2>/dev/null; then
+  echo "OPENSEARCH_JAVA_OPTS=${OPENSEARCH_JAVA_OPTS}" >> .env
+else
+  sed -i "s/^OPENSEARCH_JAVA_OPTS=.*/OPENSEARCH_JAVA_OPTS=${OPENSEARCH_JAVA_OPTS}/" .env
+fi
+
 
 
 # Check for network conflicts and recreate if needed

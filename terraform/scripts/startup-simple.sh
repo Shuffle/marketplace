@@ -71,31 +71,27 @@ if [[ "${NODE_ROLE}" == "manager" ]] && [[ "${IS_PRIMARY}" == "true" ]]; then
   # Download and setup Shuffle files
   cd /opt/shuffle
   
-  # Download Shuffle deployment files
-  curl -o deploy.sh https://raw.githubusercontent.com/Shuffle/marketplace/refs/heads/master/deploy.sh
-  # Get our enhanced deploy script from metadata
-  curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/deploy-enhanced-script" > ./deploy-enhanced.sh
-  # Use our local fixed swarm.yaml instead of downloading the remote buggy one
+  # Get all Shuffle deployment files from local metadata (no external downloads)
+  curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/deploy-sh" > ./deploy.sh
   curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/swarm-yaml" > ./swarm-nfs.yaml
-  curl -o setup-nfs-server.sh https://raw.githubusercontent.com/Shuffle/marketplace/refs/heads/master/setup-nfs-server.sh
-  curl -o .env https://raw.githubusercontent.com/Shuffle/marketplace/refs/heads/master/.env
+  curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/setup-nfs-server-sh" > ./setup-nfs-server.sh
+  curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/env-file" > ./.env
    
-  chmod +x deploy.sh deploy-enhanced.sh setup-nfs-server.sh
+  chmod +x deploy.sh setup-nfs-server.sh
   
-  # Download nginx configuration
+  # Get nginx configuration from local metadata
   mkdir -p /srv/nfs/nginx-config
-  curl -o /srv/nfs/nginx-config/nginx-main.conf https://raw.githubusercontent.com/Shuffle/marketplace/refs/heads/master/nginx-main.conf
+  curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/nginx-main-conf" > /srv/nfs/nginx-config/nginx-main.conf
+  
+  # Get OpenSearch circuit breaker configuration
+  curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/opensearch-circuit-breaker-conf" > ./opensearch-circuit-breaker.conf
   
   # Wait a bit for swarm to stabilize
   sleep 10
   
-  # Deploy Shuffle stack using the enhanced deploy script
+  # Deploy Shuffle stack using the deploy script
   echo "Deploying Shuffle stack..."
-  if [[ -f ./deploy-enhanced.sh ]]; then
-    ./deploy-enhanced.sh
-  else
-    ./deploy.sh
-  fi
+  ./deploy.sh
   
   echo "Primary manager initialization complete!"
   
@@ -154,34 +150,27 @@ else
   # Download and setup Shuffle files for this manager
   cd /opt/shuffle
   
-  # Download Shuffle deployment files
-  curl -o deploy.sh https://raw.githubusercontent.com/Shuffle/marketplace/refs/heads/master/deploy.sh
-  # Get our enhanced deploy script from metadata
-  curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/deploy-enhanced-script" > ./deploy-enhanced.sh
-  # Use our local fixed swarm.yaml instead of downloading the remote buggy one
+  # Get all Shuffle deployment files from local metadata (no external downloads)
+  curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/deploy-sh" > ./deploy.sh
   curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/swarm-yaml" > ./swarm-nfs.yaml
-  curl -o setup-nfs-server.sh https://raw.githubusercontent.com/Shuffle/marketplace/refs/heads/master/setup-nfs-server.sh
-  curl -o .env https://raw.githubusercontent.com/Shuffle/marketplace/refs/heads/master/.env
+  curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/setup-nfs-server-sh" > ./setup-nfs-server.sh
+  curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/env-file" > ./.env
   
-  chmod +x deploy.sh deploy-enhanced.sh setup-nfs-server.sh
+  chmod +x deploy.sh setup-nfs-server.sh
   
   # Wait a bit for swarm to stabilize
   sleep 10
   
   # Deploy Shuffle stack (this will update the existing stack if already deployed)
-  echo "Running deploy script on manager node..."
-  if [[ -f ./deploy-enhanced.sh ]]; then
-    ./deploy-enhanced.sh
-  else
-    ./deploy.sh
-  fi
+  echo "Running deploy.sh on manager node..."
+  ./deploy.sh
   
   echo "Manager node initialization complete!"
 fi
 
 # Run database permissions monitor in background
 echo "Starting database permissions monitor..."
-wget -O /opt/shuffle/monitor-db-permissions.sh https://raw.githubusercontent.com/Shuffle/marketplace/refs/heads/master/terraform/scripts/monitor-db-permissions.sh
+curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/monitor-db-permissions-sh" > /opt/shuffle/monitor-db-permissions.sh
 chmod +x /opt/shuffle/monitor-db-permissions.sh
 nohup /opt/shuffle/monitor-db-permissions.sh > /var/log/shuffle-db-monitor.log 2>&1 &
 echo "Database permissions monitor started (PID: $!)"

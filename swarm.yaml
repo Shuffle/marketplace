@@ -84,47 +84,38 @@ services:
       - DISABLE_PERFORMANCE_ANALYZER_AGENT_CLI=true
       - cluster.routing.allocation.disk.threshold_enabled=true
       - cluster.name=shuffle-cluster
-      - node.name=shuffle-opensearch-{{.Task.Slot}}
+      - node.name={{.Node.Hostname}}-{{.Task.Slot}}
       - node.store.allow_mmap=false
-      - discovery.type=${OPENSEARCH_DISCOVERY_TYPE}
-      - cluster.initial_master_nodes=${OPENSEARCH_INITIAL_MASTERS}
       - network.host=0.0.0.0
+      - discovery.seed_hosts=tasks.opensearch
+      - cluster.initial_cluster_manager_nodes=shuffle-test-deployment-manager-1-2,shuffle-test-deployment-manager-2-1,shuffle-test-deployment-manager-3-3
       - action.auto_create_index=true
       - DISABLE_SECURITY_PLUGIN=true
       # Production thread pool settings
-      - thread_pool.search.size=16
+      - thread_pool.search.size=3
       - thread_pool.search.queue_size=10000
-      - thread_pool.write.size=8
+      - thread_pool.write.size=2
       - thread_pool.write.queue_size=1000
-      - thread_pool.get.size=8
+      - thread_pool.get.size=2
       - thread_pool.get.queue_size=5000
-      - thread_pool.bulk.size=8
-      - thread_pool.bulk.queue_size=200
+      # Note: thread_pool.bulk.* removed - deprecated in OpenSearch 3.0, write thread pool handles bulk operations
       # Circuit breaker settings
       - indices.breaker.total.limit=85%
       - indices.breaker.request.limit=60%
       - indices.breaker.fielddata.limit=40%
-      - indices.breaker.in_flight_requests.limit=100%
+      - network.breaker.inflight_requests.limit=100%
       # Memory settings
       - indices.memory.index_buffer_size=30%
       - indices.memory.min_index_buffer_size=256mb
       - indices.queries.cache.size=20%
       - indices.requests.cache.size=10%
       - indices.fielddata.cache.size=20%
-      # Indexing performance
-      - index.refresh_interval=10s
-      - index.number_of_shards=3
-      - index.number_of_replicas=${OPENSEARCH_INDEX_REPLICAS}
-      - index.translog.flush_threshold_size=1gb
-      - index.translog.durability=async
+      # Note: index.* settings removed - these are index-level settings that cannot be set at node level in OpenSearch 3.0
       # Search settings
       - search.default_search_timeout=60s
       - search.max_buckets=50000
       - search.allow_expensive_queries=false
-      # Bulk settings
-      - bulk.queue_size=1000
-      - bulk.max_operations=10000
-      - bulk.max_size=100mb
+      # Note: bulk.* settings removed - not supported in OpenSearch 3.0
       # HTTP settings
       - http.max_content_length=200mb
       - http.max_header_size=16kb
@@ -143,9 +134,10 @@ services:
     networks:
       - shuffle
     volumes:
-      - shuffle-database:/usr/share/opensearch/data
+      - /opt/shuffle/shuffle-database:/usr/share/opensearch/data
     deploy:
-      replicas: ${OPENSEARCH_REPLICAS}
+      replicas: 3
+      endpoint_mode: dnsrr
       restart_policy:
         condition: any
         delay: 15s
@@ -246,9 +238,9 @@ volumes:
   shuffle-database:
     driver: local
     driver_opts:
-      type: none
-      o: bind
-      device: /opt/shuffle/shuffle-database
+      type: nfs
+      o: "addr=${NFS_MASTER_IP},nfsvers=3,proto=tcp,rw,soft,intr,port=2049,mountport=51771,resvport,nolock,timeo=600,retrans=2"
+      device: ":/srv/nfs/shuffle-database"
 
   nginx-config:
     driver: local
