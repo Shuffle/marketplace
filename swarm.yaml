@@ -61,9 +61,10 @@ services:
       - SHUFFLE_STATS_DISABLED=true
       - SHUFFLE_SWARM_CONFIG=run
       - SHUFFLE_WORKER_IMAGE=ghcr.io/shuffle/shuffle-worker:latest
-      - SHUFFLE_APP_REPLICA=1
+      - SHUFFLE_APP_REPLICA=${SHUFFLE_APP_REPLICA}
       - SHUFFLE_WORKER_SERVER_URL=http://shuffle-workers:33333
       - SHUFFLE_SWARM_NETWORK_NAME=shuffle_swarm_executions
+      - SHUFFLE_ORBORUS_EXECUTION_CONCURRENCY=${SHUFFLE_ORBORUS_EXECUTION_CONCURRENCY}
     deploy:
       replicas: ${SWARM_NODE_COUNT}
       restart_policy:
@@ -186,7 +187,7 @@ services:
       - swarm_executions
     env_file: .env
     deploy:
-      replicas: 1
+      replicas: ${SWARM_NODE_COUNT}
       restart_policy:
         condition: any
         delay: 10s
