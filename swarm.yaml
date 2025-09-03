@@ -166,9 +166,9 @@ services:
       - "3443:443"
     networks:
       - shuffle
-    volumes:
-      - nginx-config:/nginx-config:ro
-    command: sh -c "cp /nginx-config/nginx-main.conf /etc/nginx/nginx.conf && nginx -g 'daemon off;'"
+    configs:
+      - source: nginx_main_conf
+        target: /etc/nginx/nginx.conf
     deploy:
       replicas: ${SWARM_NODE_COUNT}
       restart_policy:
@@ -199,6 +199,10 @@ services:
         reservations:
           memory: 512M
 
+configs:
+  nginx_main_conf:
+    file: ./nginx-main.conf
+
 volumes:
   # NFS volumes - shared across all swarm nodes (NFSv3 with pinned mountd)
   shuffle-apps:
@@ -222,12 +226,6 @@ volumes:
       o: "addr=${NFS_MASTER_IP},nfsvers=3,proto=tcp,rw,soft,intr,port=2049,mountport=51771,resvport,nolock,timeo=600,retrans=2"
       device: ":/srv/nfs/shuffle-database"
 
-  nginx-config:
-    driver: local
-    driver_opts:
-      type: nfs
-      o: "addr=${NFS_MASTER_IP},nfsvers=3,proto=tcp,ro,soft,intr,port=2049,mountport=51771,resvport,nolock,timeo=600,retrans=2"
-      device: ":/srv/nfs/nginx-config"
 
 networks:
   shuffle:
