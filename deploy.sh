@@ -127,6 +127,43 @@ echo "🔧 OpenSearch cluster configuration handled by swarm.yaml"
 
 echo "🔧 OpenSearch Java opts: ${OPENSEARCH_JAVA_OPTS}"
 
+# Calculate dynamic thread pool settings based on node count and resources
+# Search threads: 1-3 per node, max 12
+THREAD_POOL_SEARCH_SIZE=$(( SWARM_NODE_COUNT > 4 ? 12 : SWARM_NODE_COUNT * 3 ))
+THREAD_POOL_SEARCH_QUEUE=$(( THREAD_POOL_SEARCH_SIZE * 1000 ))
+
+# Write threads: 1-2 per node, max 8  
+THREAD_POOL_WRITE_SIZE=$(( SWARM_NODE_COUNT > 4 ? 8 : SWARM_NODE_COUNT * 2 ))
+THREAD_POOL_WRITE_QUEUE=$(( THREAD_POOL_WRITE_SIZE * 500 ))
+
+# Get threads: 1-2 per node, max 6
+THREAD_POOL_GET_SIZE=$(( SWARM_NODE_COUNT > 3 ? 6 : SWARM_NODE_COUNT * 2 ))
+THREAD_POOL_GET_QUEUE=$(( THREAD_POOL_GET_SIZE * 1000 ))
+
+# Dynamic circuit breaker settings based on cluster size
+if [[ "${SWARM_NODE_COUNT}" -eq 1 ]]; then
+    # More conservative for single node
+    CIRCUIT_BREAKER_TOTAL_LIMIT="80%"
+    CIRCUIT_BREAKER_REQUEST_LIMIT="50%"
+    CIRCUIT_BREAKER_FIELDDATA_LIMIT="30%"
+    CIRCUIT_BREAKER_NETWORK_LIMIT="50%"
+elif [[ "${SWARM_NODE_COUNT}" -le 3 ]]; then
+    # Moderate settings for small clusters
+    CIRCUIT_BREAKER_TOTAL_LIMIT="85%"
+    CIRCUIT_BREAKER_REQUEST_LIMIT="60%"
+    CIRCUIT_BREAKER_FIELDDATA_LIMIT="40%"
+    CIRCUIT_BREAKER_NETWORK_LIMIT="100%"
+else
+    # More aggressive for larger clusters with better fault tolerance
+    CIRCUIT_BREAKER_TOTAL_LIMIT="90%"
+    CIRCUIT_BREAKER_REQUEST_LIMIT="70%"
+    CIRCUIT_BREAKER_FIELDDATA_LIMIT="50%"
+    CIRCUIT_BREAKER_NETWORK_LIMIT="200%"
+fi
+
+echo "🔧 Thread pools - Search: ${THREAD_POOL_SEARCH_SIZE}, Write: ${THREAD_POOL_WRITE_SIZE}, Get: ${THREAD_POOL_GET_SIZE}"
+echo "🔧 Circuit breakers - Total: ${CIRCUIT_BREAKER_TOTAL_LIMIT}, Request: ${CIRCUIT_BREAKER_REQUEST_LIMIT}"
+
 # Export env vars for compose substitution
 export NFS_MASTER_IP="${MASTER_IP}"
 export SWARM_NODE_COUNT="${SWARM_NODE_COUNT}"
@@ -134,6 +171,20 @@ export OPENSEARCH_REPLICAS="${OPENSEARCH_REPLICAS}"
 export OPENSEARCH_INDEX_REPLICAS="${OPENSEARCH_INDEX_REPLICAS}"
 export OPENSEARCH_INITIAL_MASTERS="${OPENSEARCH_INITIAL_MASTERS}"
 export OPENSEARCH_JAVA_OPTS="${OPENSEARCH_JAVA_OPTS}"
+
+# Export dynamic thread pool settings
+export THREAD_POOL_SEARCH_SIZE="${THREAD_POOL_SEARCH_SIZE}"
+export THREAD_POOL_SEARCH_QUEUE="${THREAD_POOL_SEARCH_QUEUE}"
+export THREAD_POOL_WRITE_SIZE="${THREAD_POOL_WRITE_SIZE}"
+export THREAD_POOL_WRITE_QUEUE="${THREAD_POOL_WRITE_QUEUE}"
+export THREAD_POOL_GET_SIZE="${THREAD_POOL_GET_SIZE}"
+export THREAD_POOL_GET_QUEUE="${THREAD_POOL_GET_QUEUE}"
+
+# Export dynamic circuit breaker settings
+export CIRCUIT_BREAKER_TOTAL_LIMIT="${CIRCUIT_BREAKER_TOTAL_LIMIT}"
+export CIRCUIT_BREAKER_REQUEST_LIMIT="${CIRCUIT_BREAKER_REQUEST_LIMIT}"
+export CIRCUIT_BREAKER_FIELDDATA_LIMIT="${CIRCUIT_BREAKER_FIELDDATA_LIMIT}"
+export CIRCUIT_BREAKER_NETWORK_LIMIT="${CIRCUIT_BREAKER_NETWORK_LIMIT}"
 
 # Update existing .env file with deployment vars
 if ! grep -q "^NFS_MASTER_IP=" .env 2>/dev/null; then

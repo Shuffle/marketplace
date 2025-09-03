@@ -61,7 +61,7 @@ services:
       - SHUFFLE_STATS_DISABLED=true
       - SHUFFLE_SWARM_CONFIG=run
       - SHUFFLE_WORKER_IMAGE=ghcr.io/shuffle/shuffle-worker:latest
-      - SHUFFLE_APP_REPLICA=3
+      - SHUFFLE_APP_REPLICA=1
       - SHUFFLE_WORKER_SERVER_URL=http://shuffle-workers:33333
       - SHUFFLE_SWARM_NETWORK_NAME=shuffle_swarm_executions
     deploy:
@@ -88,22 +88,22 @@ services:
       - node.store.allow_mmap=false
       - network.host=0.0.0.0
       - discovery.seed_hosts=tasks.opensearch
-      - cluster.initial_cluster_manager_nodes=shuffle-test-deployment-manager-1-2,shuffle-test-deployment-manager-2-1,shuffle-test-deployment-manager-3-3
+      - cluster.initial_cluster_manager_nodes={{.Node.Hostname}}-{{.Task.Slot}}
       - action.auto_create_index=true
       - DISABLE_SECURITY_PLUGIN=true
-      # Production thread pool settings
-      - thread_pool.search.size=3
-      - thread_pool.search.queue_size=10000
-      - thread_pool.write.size=2
-      - thread_pool.write.queue_size=1000
-      - thread_pool.get.size=2
-      - thread_pool.get.queue_size=5000
+      # Dynamic thread pool settings based on node count
+      - thread_pool.search.size=${THREAD_POOL_SEARCH_SIZE}
+      - thread_pool.search.queue_size=${THREAD_POOL_SEARCH_QUEUE}
+      - thread_pool.write.size=${THREAD_POOL_WRITE_SIZE}
+      - thread_pool.write.queue_size=${THREAD_POOL_WRITE_QUEUE}
+      - thread_pool.get.size=${THREAD_POOL_GET_SIZE}
+      - thread_pool.get.queue_size=${THREAD_POOL_GET_QUEUE}
       # Note: thread_pool.bulk.* removed - deprecated in OpenSearch 3.0, write thread pool handles bulk operations
-      # Circuit breaker settings
-      - indices.breaker.total.limit=85%
-      - indices.breaker.request.limit=60%
-      - indices.breaker.fielddata.limit=40%
-      - network.breaker.inflight_requests.limit=100%
+      # Circuit breaker settings - dynamically adjusted
+      - indices.breaker.total.limit=${CIRCUIT_BREAKER_TOTAL_LIMIT}
+      - indices.breaker.request.limit=${CIRCUIT_BREAKER_REQUEST_LIMIT}
+      - indices.breaker.fielddata.limit=${CIRCUIT_BREAKER_FIELDDATA_LIMIT}
+      - network.breaker.inflight_requests.limit=${CIRCUIT_BREAKER_NETWORK_LIMIT}
       # Memory settings
       - indices.memory.index_buffer_size=30%
       - indices.memory.min_index_buffer_size=256mb
@@ -136,7 +136,7 @@ services:
     volumes:
       - /opt/shuffle/shuffle-database:/usr/share/opensearch/data
     deploy:
-      replicas: 3
+      replicas: ${SWARM_NODE_COUNT}
       endpoint_mode: dnsrr
       restart_policy:
         condition: any
@@ -183,6 +183,7 @@ services:
     hostname: shuffle_memcached
     networks:
       - shuffle
+      - swarm_executions
     env_file: .env
     deploy:
       replicas: 1
@@ -236,3 +237,5 @@ networks:
   swarm_executions:
     driver: overlay
     attachable: true
+    driver_opts:
+      com.docker.network.driver.mtu: "1500"
