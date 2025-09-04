@@ -60,10 +60,12 @@ services:
       - BASE_URL=http://shuffle-backend:5001
       - SHUFFLE_STATS_DISABLED=true
       - SHUFFLE_SWARM_CONFIG=run
-      - SHUFFLE_WORKER_IMAGE=ghcr.io/shuffle/shuffle-worker:latest
-      - SHUFFLE_APP_REPLICA=3
+      - SHUFFLE_WORKER_IMAGE=ghcr.io/shuffle/shuffle-worker:nightly
+      - SHUFFLE_APP_REPLICAS=10
       - SHUFFLE_WORKER_SERVER_URL=http://shuffle-workers:33333
       - SHUFFLE_SWARM_NETWORK_NAME=shuffle_swarm_executions
+      - SHUFFLE_DEBUG_MEMORY=true
+      - DEBUG_MEMORY=true
     deploy:
       replicas: ${SWARM_NODE_COUNT}
       restart_policy:
@@ -183,6 +185,7 @@ services:
     hostname: shuffle_memcached
     networks:
       - shuffle
+      - swarm_executions
     env_file: .env
     deploy:
       replicas: 1
