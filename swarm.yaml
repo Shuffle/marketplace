@@ -61,7 +61,7 @@ services:
       - SHUFFLE_STATS_DISABLED=true
       - SHUFFLE_SWARM_CONFIG=run
       - SHUFFLE_WORKER_IMAGE=ghcr.io/shuffle/shuffle-worker:nightly
-      - SHUFFLE_APP_REPLICAS=10
+      - SHUFFLE_APP_REPLICAS=${SHUFFLE_APP_REPLICA}
       - SHUFFLE_WORKER_SERVER_URL=http://shuffle-workers:33333
       - SHUFFLE_SWARM_NETWORK_NAME=shuffle_swarm_executions
       - SHUFFLE_DEBUG_MEMORY=true
@@ -101,11 +101,6 @@ services:
       - thread_pool.get.size=${THREAD_POOL_GET_SIZE}
       - thread_pool.get.queue_size=${THREAD_POOL_GET_QUEUE}
       # Note: thread_pool.bulk.* removed - deprecated in OpenSearch 3.0, write thread pool handles bulk operations
-      # Circuit breaker settings - dynamically adjusted
-      - indices.breaker.total.limit=${CIRCUIT_BREAKER_TOTAL_LIMIT}
-      - indices.breaker.request.limit=${CIRCUIT_BREAKER_REQUEST_LIMIT}
-      - indices.breaker.fielddata.limit=${CIRCUIT_BREAKER_FIELDDATA_LIMIT}
-      - network.breaker.inflight_requests.limit=${CIRCUIT_BREAKER_NETWORK_LIMIT}
       # Memory settings
       - indices.memory.index_buffer_size=30%
       - indices.memory.min_index_buffer_size=256mb
