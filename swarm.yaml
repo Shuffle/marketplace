@@ -57,7 +57,7 @@ services:
     env_file: .env
     environment:
       - SHUFFLE_APP_SDK_TIMEOUT=300
-      - BASE_URL=http://shuffle-backend:5001
+      - BASE_URL=http://shuffle_backend:5001
       - SHUFFLE_STATS_DISABLED=true
       - SHUFFLE_SWARM_CONFIG=run
       - SHUFFLE_WORKER_IMAGE=ghcr.io/shuffle/shuffle-worker:nightly
