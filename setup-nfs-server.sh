@@ -65,15 +65,16 @@ cat >/etc/modprobe.d/lockd.conf <<'EOF'
 options lockd nlm_tcpport=32769 nlm_udpport=32769
 EOF
 
-echo "📝 Configuring NFS exports (root_squash, insecure for high client ports)..."
+echo "📝 Configuring NFS exports (all_squash to UID:GID 1000 for Shuffle containers)..."
 cat > /etc/exports <<EOF
 # Shuffle NFS exports for Docker Swarm (NFSv3)
-# Keep root_squash (safer). Ensure dirs are owned by APP_UID:APP_GID.
+# Use all_squash with anonuid/anongid=1000 to match Shuffle container user
+# This ensures all NFS operations are performed as UID:GID 1000:1000
 # 'insecure' allows high (non-privileged) client ports used by Docker.
-/srv/nfs/shuffle-apps      ${NETWORK}(rw,sync,root_squash,no_subtree_check,insecure)
-/srv/nfs/shuffle-files     ${NETWORK}(rw,sync,root_squash,no_subtree_check,insecure)
-/srv/nfs/shuffle-database  ${NETWORK}(rw,sync,root_squash,no_subtree_check,insecure)
-/srv/nfs/nginx-config      ${NETWORK}(ro,sync,root_squash,no_subtree_check,insecure)
+/srv/nfs/shuffle-apps      ${NETWORK}(rw,sync,all_squash,anonuid=${APP_UID},anongid=${APP_GID},no_subtree_check,insecure)
+/srv/nfs/shuffle-files     ${NETWORK}(rw,sync,all_squash,anonuid=${APP_UID},anongid=${APP_GID},no_subtree_check,insecure)
+/srv/nfs/shuffle-database  ${NETWORK}(rw,sync,all_squash,anonuid=${APP_UID},anongid=${APP_GID},no_subtree_check,insecure)
+/srv/nfs/nginx-config      ${NETWORK}(ro,sync,all_squash,anonuid=${APP_UID},anongid=${APP_GID},no_subtree_check,insecure)
 EOF
 
 echo "🚀 Enabling and restarting NFS services..."

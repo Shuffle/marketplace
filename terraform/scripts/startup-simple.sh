@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+set -eu
 
 echo "Starting Shuffle node initialization..."
 
@@ -76,6 +76,7 @@ if [[ "${NODE_ROLE}" == "manager" ]] && [[ "${IS_PRIMARY}" == "true" ]]; then
   curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/swarm-yaml" > ./swarm-nfs.yaml
   curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/setup-nfs-server-sh" > ./setup-nfs-server.sh
   curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/env-file" > ./.env
+  curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/nginx-main-conf" > ./nginx-main.conf
    
   chmod +x deploy.sh setup-nfs-server.sh
   
@@ -150,6 +151,7 @@ else
   curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/swarm-yaml" > ./swarm-nfs.yaml
   curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/setup-nfs-server-sh" > ./setup-nfs-server.sh
   curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/env-file" > ./.env
+  curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/nginx-main-conf" > ./nginx-main.conf
   
   chmod +x deploy.sh setup-nfs-server.sh
   

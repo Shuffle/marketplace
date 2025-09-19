@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+set -eu
 
 # Test deployment script for Shuffle on GCP
 # Project: shuffle-australia-southeast1
