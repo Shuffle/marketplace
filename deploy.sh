@@ -2,7 +2,7 @@
 # Shuffle Docker Swarm Deployment Script
 # Automatically configures NFS and deploys the Shuffle stack
 
-set -euo pipefail
+set -eu
 
 STACK_NAME="shuffle"
 COMPOSE_FILE="swarm-nfs.yaml"
@@ -127,17 +127,41 @@ echo "🔧 OpenSearch cluster configuration handled by swarm.yaml"
 
 echo "🔧 OpenSearch Java opts: ${OPENSEARCH_JAVA_OPTS}"
 
-# Calculate dynamic thread pool settings based on node count and resources
-# Search threads: 1-3 per node, max 12
-THREAD_POOL_SEARCH_SIZE=$(( SWARM_NODE_COUNT > 4 ? 12 : SWARM_NODE_COUNT * 3 ))
+# Calculate dynamic thread pool settings based on node count and OpenSearch 3.0 limits
+# Search threads: Scales with nodes, but reasonable for cluster size
+if [[ "${SWARM_NODE_COUNT}" -eq 1 ]]; then
+    THREAD_POOL_SEARCH_SIZE=2
+elif [[ "${SWARM_NODE_COUNT}" -eq 2 ]]; then
+    THREAD_POOL_SEARCH_SIZE=4
+elif [[ "${SWARM_NODE_COUNT}" -eq 3 ]]; then
+    THREAD_POOL_SEARCH_SIZE=6
+else
+    # For 4+ nodes, cap at reasonable limit
+    THREAD_POOL_SEARCH_SIZE=12
+fi
 THREAD_POOL_SEARCH_QUEUE=$(( THREAD_POOL_SEARCH_SIZE * 1000 ))
 
-# Write threads: 1-2 per node, max 8  
-THREAD_POOL_WRITE_SIZE=$(( SWARM_NODE_COUNT > 4 ? 8 : SWARM_NODE_COUNT * 2 ))
+# Write threads: CRITICAL - OpenSearch 3.0 has max limit of 3 for write thread pool
+if [[ "${SWARM_NODE_COUNT}" -eq 1 ]]; then
+    THREAD_POOL_WRITE_SIZE=1
+elif [[ "${SWARM_NODE_COUNT}" -eq 2 ]]; then
+    THREAD_POOL_WRITE_SIZE=2  # Safe for 2 nodes
+elif [[ "${SWARM_NODE_COUNT}" -ge 3 ]]; then
+    THREAD_POOL_WRITE_SIZE=3  # Max allowed by OpenSearch 3.0
+fi
 THREAD_POOL_WRITE_QUEUE=$(( THREAD_POOL_WRITE_SIZE * 500 ))
 
-# Get threads: 1-2 per node, max 6
-THREAD_POOL_GET_SIZE=$(( SWARM_NODE_COUNT > 3 ? 6 : SWARM_NODE_COUNT * 2 ))
+# Get threads: Scales reasonably with nodes 
+if [[ "${SWARM_NODE_COUNT}" -eq 1 ]]; then
+    THREAD_POOL_GET_SIZE=1
+elif [[ "${SWARM_NODE_COUNT}" -eq 2 ]]; then
+    THREAD_POOL_GET_SIZE=3
+elif [[ "${SWARM_NODE_COUNT}" -eq 3 ]]; then
+    THREAD_POOL_GET_SIZE=5
+else
+    # For 4+ nodes
+    THREAD_POOL_GET_SIZE=8
+fi
 THREAD_POOL_GET_QUEUE=$(( THREAD_POOL_GET_SIZE * 1000 ))
 
 echo "🔧 Thread pools - Search: ${THREAD_POOL_SEARCH_SIZE}, Write: ${THREAD_POOL_WRITE_SIZE}, Get: ${THREAD_POOL_GET_SIZE}"
