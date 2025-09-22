@@ -56,7 +56,7 @@ http {
     }
     
     upstream backend {
-        server shuffle-backend:5001;
+        server shuffle_backend:5001;
     }
     
     server {

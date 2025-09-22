@@ -181,6 +181,8 @@ services:
     networks:
       - shuffle
       - swarm_executions
+    ports:
+      - "11211:11211"
     env_file: .env
     deploy:
       replicas: ${SWARM_NODE_COUNT}
