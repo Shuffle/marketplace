@@ -5,7 +5,7 @@
 set -eu
 
 STACK_NAME="shuffle"
-COMPOSE_FILE="swarm-nfs.yaml"
+COMPOSE_FILE="swarm.yaml"
 NFS_SETUP_SCRIPT="./setup-nfs-server.sh"
 
 echo "🚀 Shuffle Docker Swarm Deployment"
