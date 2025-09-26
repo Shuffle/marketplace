@@ -100,16 +100,17 @@ echo "🔢 Detected ${SWARM_NODE_COUNT} nodes in the swarm"
 
 # Generate OpenSearch initial master nodes list based on actual replicas
 OPENSEARCH_REPLICAS=$(( SWARM_NODE_COUNT > 3 ? 3 : SWARM_NODE_COUNT ))
-OPENSEARCH_INDEX_REPLICAS=$(( OPENSEARCH_REPLICAS - 1 ))
+
 OPENSEARCH_INITIAL_MASTERS=""
-for i in $(seq 1 $OPENSEARCH_REPLICAS); do
+for NODE_ID in $(docker node ls --format "{{.ID}}" | head -n $OPENSEARCH_REPLICAS); do
+  NODE_HOSTNAME=$(docker node inspect "$NODE_ID" --format "{{.Description.Hostname}}")
   if [[ -z "${OPENSEARCH_INITIAL_MASTERS}" ]]; then
-    OPENSEARCH_INITIAL_MASTERS="shuffle-opensearch-${i}"
+    OPENSEARCH_INITIAL_MASTERS="${NODE_HOSTNAME}"
   else
-    OPENSEARCH_INITIAL_MASTERS="${OPENSEARCH_INITIAL_MASTERS},shuffle-opensearch-${i}"
+    OPENSEARCH_INITIAL_MASTERS="${OPENSEARCH_INITIAL_MASTERS},${NODE_HOSTNAME}"
   fi
 done
-echo "🔧 OpenSearch replicas: ${OPENSEARCH_REPLICAS}, index replicas: ${OPENSEARCH_INDEX_REPLICAS}, initial masters: ${OPENSEARCH_INITIAL_MASTERS}"
+
 
 # Set OpenSearch 3.0 compatible configurations
 # Set OpenSearch Java opts based on node count
@@ -167,18 +168,11 @@ THREAD_POOL_GET_QUEUE=$(( THREAD_POOL_GET_SIZE * 1000 ))
 echo "🔧 Thread pools - Search: ${THREAD_POOL_SEARCH_SIZE}, Write: ${THREAD_POOL_WRITE_SIZE}, Get: ${THREAD_POOL_GET_SIZE}"
 
 
-SHUFFLE_APP_REPLICA=$(( SWARM_NODE_COUNT > 3 ? 3 : SWARM_NODE_COUNT ))
-
-SHUFFLE_ORBORUS_EXECUTION_CONCURRENCY=$(( SWARM_NODE_COUNT > 2 ? SWARM_NODE_COUNT * 3 : SWARM_NODE_COUNT * 5 ))
-
-echo "🔧 App replicas: ${SHUFFLE_APP_REPLICA}, Orborus concurrency: ${SHUFFLE_ORBORUS_EXECUTION_CONCURRENCY}"
-
 # Export env vars for compose substitution
 export NFS_MASTER_IP="${MASTER_IP}"
 export SWARM_NODE_COUNT="${SWARM_NODE_COUNT}"
-export OPENSEARCH_REPLICAS="${OPENSEARCH_REPLICAS}"
-export OPENSEARCH_INDEX_REPLICAS="${OPENSEARCH_INDEX_REPLICAS}"
 export OPENSEARCH_INITIAL_MASTERS="${OPENSEARCH_INITIAL_MASTERS}"
+export OPENSEARCH_SEED_HOSTS="tasks.opensearch"
 export OPENSEARCH_JAVA_OPTS="${OPENSEARCH_JAVA_OPTS}"
 
 # Export dynamic thread pool settings
@@ -189,8 +183,6 @@ export THREAD_POOL_WRITE_QUEUE="${THREAD_POOL_WRITE_QUEUE}"
 export THREAD_POOL_GET_SIZE="${THREAD_POOL_GET_SIZE}"
 export THREAD_POOL_GET_QUEUE="${THREAD_POOL_GET_QUEUE}"
 
-export SHUFFLE_APP_REPLICA="${SHUFFLE_APP_REPLICA}"
-export SHUFFLE_ORBORUS_EXECUTION_CONCURRENCY="${SHUFFLE_ORBORUS_EXECUTION_CONCURRENCY}"
 
 # Update existing .env file with deployment vars
 if ! grep -q "^NFS_MASTER_IP=" .env 2>/dev/null; then
@@ -205,17 +197,6 @@ else
   sed -i "s/^SWARM_NODE_COUNT=.*/SWARM_NODE_COUNT=${SWARM_NODE_COUNT}/" .env
 fi
 
-if ! grep -q "^OPENSEARCH_REPLICAS=" .env 2>/dev/null; then
-  echo "OPENSEARCH_REPLICAS=${OPENSEARCH_REPLICAS}" >> .env
-else
-  sed -i "s/^OPENSEARCH_REPLICAS=.*/OPENSEARCH_REPLICAS=${OPENSEARCH_REPLICAS}/" .env
-fi
-
-if ! grep -q "^OPENSEARCH_INDEX_REPLICAS=" .env 2>/dev/null; then
-  echo "OPENSEARCH_INDEX_REPLICAS=${OPENSEARCH_INDEX_REPLICAS}" >> .env
-else
-  sed -i "s/^OPENSEARCH_INDEX_REPLICAS=.*/OPENSEARCH_INDEX_REPLICAS=${OPENSEARCH_INDEX_REPLICAS}/" .env
-fi
 
 if ! grep -q "^OPENSEARCH_INITIAL_MASTERS=" .env 2>/dev/null; then
   echo "OPENSEARCH_INITIAL_MASTERS=${OPENSEARCH_INITIAL_MASTERS}" >> .env

@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   frontend:
-    image: ghcr.io/shuffle/shuffle-frontend:nightly
+    image: ghcr.io/shuffle/shuffle-frontend:latest
     hostname: shuffle-frontend
     networks:
       - shuffle
@@ -22,7 +22,7 @@ services:
         failure_action: rollback
 
   backend:
-    image: ghcr.io/shuffle/shuffle-backend:nightly
+    image: ghcr.io/shuffle/shuffle-backend:latest
     hostname: shuffle-backend
     networks:
       - shuffle
@@ -47,7 +47,7 @@ services:
         failure_action: rollback
 
   orborus:
-    image: ghcr.io/shuffle/shuffle-orborus:nightly
+    image: ghcr.io/shuffle/shuffle-orborus:latest
     hostname: shuffle-orborus
     networks:
       - shuffle
@@ -60,10 +60,11 @@ services:
       - BASE_URL=http://shuffle_backend:5001
       - SHUFFLE_STATS_DISABLED=true
       - SHUFFLE_SWARM_CONFIG=run
-      - SHUFFLE_WORKER_IMAGE=ghcr.io/shuffle/shuffle-worker:nightly
-      - SHUFFLE_APP_REPLICAS=${SHUFFLE_APP_REPLICA}
+      - SHUFFLE_WORKER_IMAGE=ghcr.io/shuffle/shuffle-worker:latest
+      - SHUFFLE_APP_REPLICAS=1
       - SHUFFLE_WORKER_SERVER_URL=http://shuffle-workers:33333
       - SHUFFLE_SWARM_NETWORK_NAME=shuffle_swarm_executions
+      - SHUFFLE_SCALE_REPLICAS=1
       - SHUFFLE_DEBUG_MEMORY=true
       - DEBUG_MEMORY=true
     deploy:
@@ -86,11 +87,11 @@ services:
       - DISABLE_PERFORMANCE_ANALYZER_AGENT_CLI=true
       - cluster.routing.allocation.disk.threshold_enabled=true
       - cluster.name=shuffle-cluster
-      - node.name={{.Node.Hostname}}-{{.Task.Slot}}
+      - node.name={{.Node.Hostname}}
       - node.store.allow_mmap=false
       - network.host=0.0.0.0
-      - discovery.seed_hosts=tasks.opensearch
-      - cluster.initial_cluster_manager_nodes={{.Node.Hostname}}-{{.Task.Slot}}
+      - discovery.seed_hosts=${OPENSEARCH_SEED_HOSTS}
+      - cluster.initial_cluster_manager_nodes=${OPENSEARCH_INITIAL_MASTERS}
       - action.auto_create_index=true
       - DISABLE_SECURITY_PLUGIN=true
       # Dynamic thread pool settings based on node count
@@ -177,7 +178,7 @@ services:
 
   memcached:
     image: memcached:latest
-    hostname: shuffle_memcached
+    hostname: SHUFFLE_APP_REPLICAmemcached
     networks:
       - shuffle
       - swarm_executions

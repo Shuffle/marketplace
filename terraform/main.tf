@@ -168,13 +168,13 @@ resource "google_compute_instance" "swarm_manager" {
     opensearch-index-replicas  = local.opensearch_index_replicas
     opensearch-initial-masters = local.opensearch_initial_masters
 
-    startup-script = file("${path.module}/scripts/startup-simple.sh")
-    swarm-yaml = file("${path.module}/../swarm.yaml")
-    deploy-sh = file("${path.module}/../deploy.sh")
-    setup-nfs-server-sh = file("${path.module}/../setup-nfs-server.sh")
-    env-file = file("${path.module}/../.env")
-    nginx-main-conf = file("${path.module}/../nginx-main.conf")
-    monitor-db-permissions-sh = file("${path.module}/scripts/monitor-db-permissions.sh")
+    startup-script = replace(file("${path.module}/scripts/startup-simple.sh"), "\r\n", "\n")
+    swarm-yaml = replace(file("${path.module}/../swarm.yaml"), "\r\n", "\n")
+    deploy-sh = replace(file("${path.module}/../deploy.sh"), "\r\n", "\n")
+    setup-nfs-server-sh = replace(file("${path.module}/../setup-nfs-server.sh"), "\r\n", "\n")
+    env-file = replace(file("${path.module}/../.env"), "\r\n", "\n")
+    nginx-main-conf = replace(file("${path.module}/../nginx-main.conf"), "\r\n", "\n")
+    monitor-db-permissions-sh = replace(file("${path.module}/scripts/monitor-db-permissions.sh"), "\r\n", "\n")
   }
 
   service_account {
