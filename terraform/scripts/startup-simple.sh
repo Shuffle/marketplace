@@ -80,13 +80,31 @@ if [[ "${NODE_ROLE}" == "manager" ]] && [[ "${IS_PRIMARY}" == "true" ]]; then
    
   chmod +x deploy.sh setup-nfs-server.sh
   
+  # Wait for all expected nodes to join the swarm before deploying
+  echo "Waiting for all ${TOTAL_NODES} nodes to join the swarm before deploying..."
+  for i in {1..300}; do  # Wait up to 50 minutes
+    CURRENT_NODE_COUNT=$(docker node ls --format "{{.ID}}" | wc -l)
+    echo "Current nodes in swarm: ${CURRENT_NODE_COUNT}/${TOTAL_NODES} (attempt $i/300)"
+    
+    if [[ "${CURRENT_NODE_COUNT}" -eq "${TOTAL_NODES}" ]]; then
+      echo "✅ All ${TOTAL_NODES} nodes have joined the swarm!"
+      break
+    fi
+    
+    if [[ $i -eq 300 ]]; then
+      echo "⚠️  Timeout waiting for all nodes. Proceeding with ${CURRENT_NODE_COUNT} nodes..."
+      break
+    fi
+    
+    sleep 10
+  done
   
-  
-  # Wait a bit for swarm to stabilize
-  sleep 10
+  # Wait additional time for swarm to stabilize
+  echo "Waiting for swarm to stabilize..."
+  sleep 30
   
   # Deploy Shuffle stack using the deploy script
-  echo "Deploying Shuffle stack..."
+  echo "Deploying Shuffle stack with all available nodes..."
   ./deploy.sh
   
   echo "Primary manager initialization complete!"
@@ -155,12 +173,8 @@ else
   
   chmod +x deploy.sh setup-nfs-server.sh
   
-  # Wait a bit for swarm to stabilize
-  sleep 10
-  
-  # Deploy Shuffle stack (this will update the existing stack if already deployed)
-  echo "Running deploy.sh on manager node..."
-  ./deploy.sh
+  echo "Secondary manager joined swarm successfully!"
+  echo "Deployment will be handled by the primary manager once all nodes are ready."
   
   echo "Manager node initialization complete!"
 fi
