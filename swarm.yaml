@@ -178,7 +178,7 @@ services:
 
   memcached:
     image: memcached:latest
-    hostname: SHUFFLE_APP_REPLICAmemcached
+    hostname: shuffle_memcached
     networks:
       - shuffle
       - swarm_executions
